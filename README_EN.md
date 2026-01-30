@@ -167,7 +167,6 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 1. Create a new project in the Supabase console
 2. In Database → Table Editor, create a `blogs` table (example):
-
    - `id`: `uuid` (primary key) or `text`
    - `title`: `text`
    - `content`: `text`

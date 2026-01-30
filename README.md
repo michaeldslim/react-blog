@@ -167,7 +167,6 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 1. Supabase 콘솔에서 새 프로젝트 생성
 2. Database → Table Editor 에서 `blogs` 테이블 생성 (예시):
-
    - `id`: `uuid` (primary key) 또는 `text`
    - `title`: `text`
    - `content`: `text`

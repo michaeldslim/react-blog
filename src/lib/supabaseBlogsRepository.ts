@@ -122,9 +122,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       .single();
 
     if (fetchError || !existing) {
-      throw new Error(
-        `Supabase toggleBlogGood fetch error: ${fetchError?.message ?? "No data"}`,
-      );
+      throw new Error(`Supabase toggleBlogGood fetch error: ${fetchError?.message ?? "No data"}`);
     }
 
     const current = existing as { is_good: boolean };
@@ -141,9 +139,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       .single();
 
     if (updateError || !data) {
-      throw new Error(
-        `Supabase toggleBlogGood update error: ${updateError?.message ?? "No data"}`,
-      );
+      throw new Error(`Supabase toggleBlogGood update error: ${updateError?.message ?? "No data"}`);
     }
     return mapRowToBlog(data as BlogsRow);
   },

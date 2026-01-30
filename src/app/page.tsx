@@ -138,12 +138,12 @@ export default function HomePage() {
 
   const createBlogMutation = useMutation({
     mutationFn: (variables: { title: string; content: string }) =>
-      graphqlRequest<
-        { createBlog: { id: string } },
-        { input: { title: string; content: string } }
-      >(CREATE_BLOG, {
-        input: variables,
-      }),
+      graphqlRequest<{ createBlog: { id: string } }, { input: { title: string; content: string } }>(
+        CREATE_BLOG,
+        {
+          input: variables,
+        },
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
@@ -178,12 +178,9 @@ export default function HomePage() {
 
   const toggleBlogGoodMutation = useMutation({
     mutationFn: (variables: { id: string }) =>
-      graphqlRequest<{ toggleBlogGood: { id: string } }, { id: string }>(
-        TOGGLE_BLOG_GOOD,
-        {
-          id: variables.id,
-        },
-      ),
+      graphqlRequest<{ toggleBlogGood: { id: string } }, { id: string }>(TOGGLE_BLOG_GOOD, {
+        id: variables.id,
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
@@ -326,7 +323,9 @@ export default function HomePage() {
           )}
 
           {!isLoading && !error && blogs.length === 0 && (
-            <p className="text-sm text-muted-foreground">No blogs yet. Create your first one above.</p>
+            <p className="text-sm text-muted-foreground">
+              No blogs yet. Create your first one above.
+            </p>
           )}
 
           <div className="space-y-4">

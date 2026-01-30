@@ -47,7 +47,10 @@ export const blogsRepository: IBlogsRepository = {
     return newBlog;
   },
 
-  async updateBlog(id: string, input: { title?: string; content?: string; isGood?: boolean }): Promise<IBlog> {
+  async updateBlog(
+    id: string,
+    input: { title?: string; content?: string; isGood?: boolean },
+  ): Promise<IBlog> {
     const existing = blogs.find((blog) => blog.id === id);
     if (!existing) {
       throw new Error("Blog not found");
