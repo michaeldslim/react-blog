@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import type { IPost } from "@/types";
@@ -120,37 +121,73 @@ async function graphqlRequest<TData, TVariables = Record<string, unknown>>(
 }
 
 export default function HomePage() {
-  const [posts, setPosts] = useState<IPost[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["posts"],
+    queryFn: () => graphqlRequest<{ posts: IPost[] }>(GET_POSTS),
+  });
+
+  const posts = data?.posts ?? [];
 
   const [createTitle, setCreateTitle] = useState("");
   const [createContent, setCreateContent] = useState("");
-  const [creating, setCreating] = useState(false);
 
   const [editingPost, setEditingPost] = useState<IEditablePostState | null>(null);
   const [updating, setUpdating] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    void loadPosts();
-  }, []);
+  const createPostMutation = useMutation({
+    mutationFn: (variables: { title: string; content: string }) =>
+      graphqlRequest<
+        { createPost: { id: string } },
+        { input: { title: string; content: string } }
+      >(CREATE_POST, {
+        input: variables,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
 
-  async function loadPosts() {
-    try {
-      setLoading(true);
-      setError(null);
+  const updatePostMutation = useMutation({
+    mutationFn: (variables: { id: string; title: string; content: string }) =>
+      graphqlRequest<
+        { updatePost: IPost },
+        { id: string; input: { title: string; content: string } }
+      >(UPDATE_POST, {
+        id: variables.id,
+        input: {
+          title: variables.title,
+          content: variables.content,
+        },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
 
-      const data = await graphqlRequest<{ posts: IPost[] }>(GET_POSTS);
-      setPosts(data.posts);
-    } catch (requestError) {
-      console.error(requestError);
-      setError("Failed to load posts.");
-      toast.error("Failed to load posts.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const deletePostMutation = useMutation({
+    mutationFn: (variables: { id: string }) =>
+      graphqlRequest<{ deletePost: boolean }, { id: string }>(DELETE_POST, {
+        id: variables.id,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
+
+  const togglePostGoodMutation = useMutation({
+    mutationFn: (variables: { id: string }) =>
+      graphqlRequest<{ togglePostGood: { id: string } }, { id: string }>(
+        TOGGLE_POST_GOOD,
+        {
+          id: variables.id,
+        },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
 
   async function handleCreatePost(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -161,37 +198,23 @@ export default function HomePage() {
     }
 
     try {
-      setCreating(true);
-
-      await graphqlRequest<
-        { createPost: { id: string } },
-        { input: { title: string; content: string } }
-      >(CREATE_POST, {
-        input: {
-          title: createTitle.trim(),
-          content: createContent.trim(),
-        },
+      await createPostMutation.mutateAsync({
+        title: createTitle.trim(),
+        content: createContent.trim(),
       });
 
       setCreateTitle("");
       setCreateContent("");
       toast.success("Post created.");
-      await loadPosts();
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to create post.");
-    } finally {
-      setCreating(false);
     }
   }
 
   async function handleToggleGood(id: string) {
     try {
-      await graphqlRequest<{ togglePostGood: { id: string } }, { id: string }>(TOGGLE_POST_GOOD, {
-        id,
-      });
-
-      await loadPosts();
+      await togglePostGoodMutation.mutateAsync({ id });
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to toggle good/bad.");
@@ -204,19 +227,12 @@ export default function HomePage() {
     }
 
     try {
-      setDeleting(true);
-
-      await graphqlRequest<{ deletePost: boolean }, { id: string }>(DELETE_POST, {
-        id,
-      });
+      await deletePostMutation.mutateAsync({ id });
 
       toast.success("Post deleted.");
-      await loadPosts();
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to delete post.");
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -239,20 +255,14 @@ export default function HomePage() {
     try {
       setUpdating(true);
 
-      await graphqlRequest<
-        { updatePost: IPost },
-        { id: string; input: { title: string; content: string } }
-      >(UPDATE_POST, {
+      await updatePostMutation.mutateAsync({
         id: editingPost.id,
-        input: {
-          title: editingPost.title.trim(),
-          content: editingPost.content.trim(),
-        },
+        title: editingPost.title.trim(),
+        content: editingPost.content.trim(),
       });
 
       toast.success("Post updated.");
       setEditingPost(null);
-      await loadPosts();
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to update post.");
@@ -284,44 +294,43 @@ export default function HomePage() {
                 placeholder="Title"
                 value={createTitle}
                 onChange={(event) => setCreateTitle(event.target.value)}
-                disabled={creating}
               />
               <Textarea
                 placeholder="Content"
                 value={createContent}
                 onChange={(event) => setCreateContent(event.target.value)}
                 rows={4}
-                disabled={creating}
               />
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
               <Button
                 type="submit"
                 size="sm"
-                disabled={creating}
                 onClick={(event) => {
                   // Wrap in a fake form submission for reuse of handler.
                   handleCreatePost(event as unknown as React.FormEvent<HTMLFormElement>);
                 }}
               >
-                {creating ? "Creating..." : "Create post"}
+                Create post
               </Button>
             </CardFooter>
           </Card>
         </section>
 
         <section aria-label="Posts list" className="flex-1 space-y-4">
-          {loading && <p className="text-sm text-muted-foreground">Loading posts...</p>}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          {!loading && !error && posts.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No posts yet. Create your first one above.
+          {isLoading && <p className="text-sm text-muted-foreground">Loading posts...</p>}
+          {error && (
+            <p className="text-sm text-destructive">
+              {error instanceof Error ? error.message : "Failed to load posts."}
             </p>
           )}
 
+          {!isLoading && !error && posts.length === 0 && (
+            <p className="text-sm text-muted-foreground">No posts yet. Create your first one above.</p>
+          )}
+
           <div className="space-y-4">
-            {posts.map((post) => {
+            {posts.map((post: IPost) => {
               const createdLabel = new Date(post.createdAt).toLocaleString();
               const updatedLabel = new Date(post.updatedAt).toLocaleString();
 
@@ -364,7 +373,7 @@ export default function HomePage() {
                         variant="outline"
                         size="xs"
                         onClick={() => openEditDialog(post)}
-                        disabled={updating}
+                        disabled={updating || updatePostMutation.isPending}
                       >
                         Edit
                       </Button>
@@ -372,7 +381,7 @@ export default function HomePage() {
                         variant="destructive"
                         size="xs"
                         onClick={() => handleDelete(post.id)}
-                        disabled={deleting}
+                        disabled={deletePostMutation.isPending}
                       >
                         Delete
                       </Button>

@@ -82,10 +82,13 @@ npm install graphql graphql-yoga
 # 6) Prettier 및 관련 ESLint 플러그인 설치 (선택이지만 권장)
 npm install -D prettier eslint-config-prettier eslint-plugin-prettier
 
-# 7) 개발 서버 실행
+# 7) TanStack Query 설치 (데이터 페칭/캐싱용)
+npm install @tanstack/react-query
+
+# 8) 개발 서버 실행
 npm run dev
 
-# 8) 브라우저에서
+# 9) 브라우저에서
 http://localhost:3000 → 블로그 UI
 http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 ```
@@ -118,6 +121,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 - `src/components/providers.tsx`
   - `Providers` 컴포넌트 정의
   - 전역 Toast(Sonner + ShadCN)를 위해 `<Toaster />` 를 렌더링
+  - TanStack Query의 `QueryClientProvider` 로 전체 앱을 감싸 전역 쿼리 클라이언트 제공
 
 - `src/app/layout.tsx`
   - Next.js 루트 레이아웃
@@ -128,7 +132,8 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
   - 주요 요소:
     - GraphQL 쿼리/뮤테이션 문자열: `GET_POSTS`, `CREATE_POST`, `UPDATE_POST`, `DELETE_POST`, `TOGGLE_POST_GOOD`
     - `graphqlRequest<TData, TVariables>()` 헬퍼 함수로 `/api/graphql` 호출
-    - 상태 관리: `posts`, `loading`, `error`, `createTitle`, `createContent`, `creating`, `editingPost`, `updating`, `deleting`
+    - TanStack Query(`useQuery`, `useMutation`, `useQueryClient`)로 posts 데이터 로딩/캐싱 및 뮤테이션 관리
+    - 로컬 상태는 작성 폼 및 수정 다이얼로그(`createTitle`, `createContent`, `editingPost`, `updating`)에 집중
     - ShadCN 컴포넌트 사용:
       - `Card`, `CardHeader`, `CardContent`, `CardFooter` 로 레이아웃 구성
       - `Input`, `Textarea` 로 글 작성/수정 폼 구현
