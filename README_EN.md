@@ -42,7 +42,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - **Framework**: Next.js (App Router) + React + TypeScript
 - **Styling/UI**: Tailwind CSS + ShadCN UI
 - **Backend**: GraphQL Yoga (`/api/graphql`) + TypeScript
-- **Data Layer**: In-memory `postsRepository` (designed to be replaced by Supabase later)
+- **Data Layer**: In-memory `blogsRepository` (designed to be replaced by Supabase later)
 
 ### 1. Commands to recreate this blog from scratch
 
@@ -96,26 +96,26 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 #### Key files
 
 - `src/types/index.ts`
-  - Defines the `IPost` interface
+  - Defines the `IBlog` interface
   - Fields: `id`, `title`, `content`, `isGood`, `createdAt`, `updatedAt`
 
-- `src/lib/postsRepository.ts`
-  - Repository layer backed by an in-memory `posts: IPost[]` array
+- `src/lib/blogsRepository.ts`
+  - Repository layer backed by an in-memory `blogs: IBlog[]` array (exported as `blogsRepository`)
   - Methods:
-    - `getPosts()`
-    - `getPostById(id)`
-    - `createPost({ title, content })`
-    - `updatePost(id, { title?, content?, isGood? })`
-    - `deletePost(id)`
-    - `togglePostGood(id)`
+    - `getBlogs()`
+    - `getBlogById(id)`
+    - `createBlog({ title, content })`
+    - `updateBlog(id, { title?, content?, isGood? })`
+    - `deleteBlog(id)`
+    - `toggleBlogGood(id)`
 
 - `src/app/api/graphql/route.ts`
   - GraphQL Yoga-based API route (`/api/graphql`)
   - `typeDefs` defines the GraphQL schema:
-    - `type Post`
-    - `type Query { posts, post }`
-    - `type Mutation { createPost, updatePost, deletePost, togglePostGood }`
-  - `resolvers` delegate the actual work to `postsRepository`
+    - `type Blog`
+    - `type Query { blogs, blog }`
+    - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood }`
+  - `resolvers` delegate the actual work to `blogsRepository`
   - Uses `createYoga` + `createSchema` to expose the schema/resolvers as a Next.js Route Handler
 
 - `src/components/providers.tsx`
@@ -130,10 +130,10 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 - `src/app/page.tsx`
   - Main blog UI page
   - Key pieces:
-    - GraphQL query/mutation strings: `GET_POSTS`, `CREATE_POST`, `UPDATE_POST`, `DELETE_POST`, `TOGGLE_POST_GOOD`
+    - GraphQL query/mutation strings: `GET_BLOGS`, `CREATE_BLOG`, `UPDATE_BLOG`, `DELETE_BLOG`, `TOGGLE_BLOG_GOOD`
     - `graphqlRequest<TData, TVariables>()` helper to call `/api/graphql`
-    - TanStack Query (`useQuery`, `useMutation`, `useQueryClient`) to load/cache posts and handle mutations
-    - Local state focused on the create form and edit dialog (`createTitle`, `createContent`, `editingPost`, `updating`)
+    - TanStack Query (`useQuery`, `useMutation`, `useQueryClient`) to load/cache blogs and handle mutations
+    - Local state focused on the create form and edit dialog (`createTitle`, `createContent`, `editingBlog`, `updating`)
     - Uses ShadCN components:
       - `Card`, `CardHeader`, `CardContent`, `CardFooter` for layout
       - `Input`, `Textarea` for create/edit forms
@@ -151,22 +151,22 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 2. **GraphQL layer (GraphQL Yoga)**
    - `/api/graphql` route (`src/app/api/graphql/route.ts`)
    - Defines GraphQL schema (`typeDefs`) and resolvers (`resolvers`)
-   - All resolvers call into `postsRepository`
+   - All resolvers call into `blogsRepository`
 
 3. **Data layer (currently In-memory)**
-   - `src/lib/postsRepository.ts`
-   - `posts` array exists only in server memory
+   - `src/lib/blogsRepository.ts`
+   - `blogs` array exists only in server memory (typed as `IBlog[]`, exported as `blogsRepository`)
    - Data resets when the server restarts
    - Encapsulated in methods so it can be swapped to Supabase (Postgres) later
 
 ---
 
-## Supabase-based `postsRepository` design (plan)
+## Supabase-based `blogsRepository` design (plan)
 
 ### 1. Supabase project and table design
 
 1. Create a new project in the Supabase console
-2. In Database → Table Editor, create a `posts` table (example):
+2. In Database → Table Editor, create a `blogs` table (example):
 
    - `id`: `uuid` (primary key) or `text`
    - `title`: `text`
@@ -175,7 +175,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
    - `created_at`: `timestamptz` (default `now()`)
    - `updated_at`: `timestamptz` (default `now()`)
 
-3. When mapping to the TypeScript `IPost` interface, be careful to convert snake_case column names to camelCase (`is_good` → `isGood`, `created_at` → `createdAt`, etc.)
+3. When mapping to the TypeScript `IBlog` interface, be careful to convert snake_case column names to camelCase (`is_good` → `isGood`, `created_at` → `createdAt`, etc.)
 
 ### 2. Environment variables
 
@@ -189,7 +189,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 - `ANON_KEY` can be used on both client and server (public)
 - `SERVICE_ROLE_KEY` is **server-only** and must not be exposed to the client
-  - `postsRepository` runs only on the server, so using the service role key there is acceptable for local development (be more strict in production).
+  - `blogsRepository` runs only on the server, so using the service role key there is acceptable for local development (be more strict in production).
 
 ### 3. Install and initialize Supabase client
 
@@ -210,52 +210,52 @@ export const supabaseServerClient = createClient(supabaseUrl, supabaseServiceRol
 });
 ```
 
-### 4. Strategy to switch `postsRepository` to Supabase
+### 4. Strategy to switch `blogsRepository` to Supabase
 
-Currently `src/lib/postsRepository.ts` is an in-memory implementation. Keep the structure the same and replace the internals with Supabase queries.
+Currently `src/lib/blogsRepository.ts` is an in-memory implementation. Keep the structure the same and replace the internals with Supabase queries.
 
-#### 4-1. `getPosts()`
+#### 4-1. `getBlogs()`
 
 Existing:
 
 ```ts
-getPosts(): IPost[] {
-  return posts.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+getBlogs(): IBlog[] {
+  return blogs.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 ```
 
 Supabase version (conceptually):
 
-- `supabaseServerClient.from("posts").select("*").order("created_at", { ascending: false })`
-- Map the result to `IPost` (`is_good` → `isGood`, `created_at` → `createdAt`, etc.)
+- `supabaseServerClient.from("blogs").select("*").order("created_at", { ascending: false })`
+- Map the result to `IBlog` (`is_good` → `isGood`, `created_at` → `createdAt`, etc.)
 
-#### 4-2. `getPostById(id)`
+#### 4-2. `getBlogById(id)`
 
-- `supabaseServerClient.from("posts").select("*").eq("id", id).single()`
+- `supabaseServerClient.from("blogs").select("*").eq("id", id).single()`
 - Return `undefined` if not found
 
-#### 4-3. `createPost({ title, content })`
+#### 4-3. `createBlog({ title, content })`
 
-- `supabaseServerClient.from("posts").insert({...}).select().single()`
+- `supabaseServerClient.from("blogs").insert({...}).select().single()`
 - Set `is_good` default to `true`
-- Convert the returned row into `IPost`
+- Convert the returned row into `IBlog`
 
-#### 4-4. `updatePost(id, input)`
+#### 4-4. `updateBlog(id, input)`
 
 - Update only the provided fields (`title`, `content`, `isGood`)
 - Update `updated_at` to `now()`
-- `supabaseServerClient.from("posts").update({...}).eq("id", id).select().single()`
+- `supabaseServerClient.from("blogs").update({...}).eq("id", id).select().single()`
 
-#### 4-5. `deletePost(id)`
+#### 4-5. `deleteBlog(id)`
 
-- `supabaseServerClient.from("posts").delete().eq("id", id)`
+- `supabaseServerClient.from("blogs").delete().eq("id", id)`
 - Use the affected row count to return `true`/`false`
 
-#### 4-6. `togglePostGood(id)`
+#### 4-6. `toggleBlogGood(id)`
 
-1. Call `getPostById(id)` to read the current `isGood` value
-2. Flip it with `!isGood` and call `updatePost` or update via Supabase directly
-3. Return the updated row as `IPost`
+1. Call `getBlogById(id)` to read the current `isGood` value
+2. Flip it with `!isGood` and call `updateBlog` or update via Supabase directly
+3. Return the updated row as `IBlog`
 
 ### 5. Other layers stay the same
 

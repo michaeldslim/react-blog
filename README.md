@@ -42,7 +42,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - **프레임워크**: Next.js (App Router) + React + TypeScript
 - **스타일/UI**: Tailwind CSS + ShadCN UI
 - **백엔드**: GraphQL Yoga (`/api/graphql`) + TypeScript
-- **데이터 레이어**: In-memory `postsRepository` (나중에 Supabase로 교체 예정)
+- **데이터 레이어**: In-memory `blogsRepository` (나중에 Supabase로 교체 예정)
 
 ### 1. 이 블로그를 처음부터 다시 만들 때 필요한 명령어
 
@@ -96,26 +96,26 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 #### 핵심 파일들
 
 - `src/types/index.ts`
-  - `IPost` 인터페이스 정의
+  - `IBlog` 인터페이스 정의
   - 필드: `id`, `title`, `content`, `isGood`, `createdAt`, `updatedAt`
 
-- `src/lib/postsRepository.ts`
-  - In-memory 배열 `posts: IPost[]` 를 사용하는 저장소 레이어
+- `src/lib/blogsRepository.ts`
+  - In-memory 배열 `blogs: IBlog[]` 를 사용하는 저장소 레이어 (`blogsRepository` export)
   - 메서드:
-    - `getPosts()`
-    - `getPostById(id)`
-    - `createPost({ title, content })`
-    - `updatePost(id, { title?, content?, isGood? })`
-    - `deletePost(id)`
-    - `togglePostGood(id)`
+    - `getBlogs()`
+    - `getBlogById(id)`
+    - `createBlog({ title, content })`
+    - `updateBlog(id, { title?, content?, isGood? })`
+    - `deleteBlog(id)`
+    - `toggleBlogGood(id)`
 
 - `src/app/api/graphql/route.ts`
   - GraphQL Yoga 기반 API 라우트(`/api/graphql`)
   - `typeDefs` 에서 GraphQL 스키마 정의
-    - `type Post`
-    - `type Query { posts, post }`
-    - `type Mutation { createPost, updatePost, deletePost, togglePostGood }`
-  - `resolvers` 에서 실제 구현을 `postsRepository` 에 위임
+    - `type Blog`
+    - `type Query { blogs, blog }`
+    - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood }`
+  - `resolvers` 에서 실제 구현을 `blogsRepository` 에 위임
   - `createYoga` + `createSchema` 로 스키마와 리졸버를 묶어 Next.js Route Handler 로 노출
 
 - `src/components/providers.tsx`
@@ -130,10 +130,10 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 - `src/app/page.tsx`
   - 블로그 메인 페이지 UI
   - 주요 요소:
-    - GraphQL 쿼리/뮤테이션 문자열: `GET_POSTS`, `CREATE_POST`, `UPDATE_POST`, `DELETE_POST`, `TOGGLE_POST_GOOD`
+    - GraphQL 쿼리/뮤테이션 문자열: `GET_BLOGS`, `CREATE_BLOG`, `UPDATE_BLOG`, `DELETE_BLOG`, `TOGGLE_BLOG_GOOD`
     - `graphqlRequest<TData, TVariables>()` 헬퍼 함수로 `/api/graphql` 호출
-    - TanStack Query(`useQuery`, `useMutation`, `useQueryClient`)로 posts 데이터 로딩/캐싱 및 뮤테이션 관리
-    - 로컬 상태는 작성 폼 및 수정 다이얼로그(`createTitle`, `createContent`, `editingPost`, `updating`)에 집중
+    - TanStack Query(`useQuery`, `useMutation`, `useQueryClient`)로 blogs 데이터 로딩/캐싱 및 뮤테이션 관리
+    - 로컬 상태는 작성 폼 및 수정 다이얼로그(`createTitle`, `createContent`, `editingBlog`, `updating`)에 집중
     - ShadCN 컴포넌트 사용:
       - `Card`, `CardHeader`, `CardContent`, `CardFooter` 로 레이아웃 구성
       - `Input`, `Textarea` 로 글 작성/수정 폼 구현
@@ -151,22 +151,22 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 2. **GraphQL 레이어 (GraphQL Yoga)**
    - `/api/graphql` 라우트 (`src/app/api/graphql/route.ts`)
    - GraphQL 스키마(`typeDefs`)와 리졸버(`resolvers`) 정의
-   - 모든 리졸버는 `postsRepository` 를 호출
+   - 모든 리졸버는 `blogsRepository` 를 호출
 
 3. **데이터 레이어 (현재는 In-memory)**
-   - `src/lib/postsRepository.ts`
-   - 서버 메모리에만 존재하는 `posts` 배열
+   - `src/lib/blogsRepository.ts`
+   - 서버 메모리에만 존재하는 `blogs` 배열 (타입은 `IBlog[]`, 레포지토리 export 는 `blogsRepository`)
    - 서버 재시작 시 데이터 초기화
    - 나중에 Supabase(Postgres)로 교체하기 쉽게 메서드 단위로 캡슐화
 
 ---
 
-## Supabase 버전 `postsRepository` 설계 (계획)
+## Supabase 버전 `blogsRepository` 설계 (계획)
 
 ### 1. Supabase 프로젝트 및 테이블 설계
 
 1. Supabase 콘솔에서 새 프로젝트 생성
-2. Database → Table Editor 에서 `posts` 테이블 생성 (예시):
+2. Database → Table Editor 에서 `blogs` 테이블 생성 (예시):
 
    - `id`: `uuid` (primary key) 또는 `text`
    - `title`: `text`
@@ -175,7 +175,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
    - `created_at`: `timestamptz` (기본값 `now()`)
    - `updated_at`: `timestamptz` (기본값 `now()`)
 
-3. TypeScript `IPost` 인터페이스와 매핑할 때, 컬럼명을 스네이크 케이스→카멜 케이스로 변환할 수 있도록 주의
+3. TypeScript `IBlog` 인터페이스와 매핑할 때, 컬럼명을 스네이크 케이스→카멜 케이스로 변환할 수 있도록 주의
 
 ### 2. 환경 변수 설정
 
@@ -189,7 +189,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 - `ANON_KEY` 는 클라이언트/서버에서 모두 사용 가능 (퍼블릭)
 - `SERVICE_ROLE_KEY` 는 **서버 전용**으로, 보안상 클라이언트에 노출되면 안 됨
-  - `postsRepository` 는 서버에서만 실행되므로, 필요하다면 SERVICE ROLE 키를 사용할 수 있음.
+  - `blogsRepository` 는 서버에서만 실행되므로, 필요하다면 SERVICE ROLE 키를 사용할 수 있음.
 
 ### 3. Supabase 클라이언트 설치 및 초기화
 
@@ -210,52 +210,52 @@ export const supabaseServerClient = createClient(supabaseUrl, supabaseServiceRol
 });
 ```
 
-### 4. `postsRepository`를 Supabase 기반으로 교체하는 전략
+### 4. `blogsRepository`를 Supabase 기반으로 교체하는 전략
 
-현재 `src/lib/postsRepository.ts` 는 In-memory 구현. 구조는 그대로 유지하되, 내부 구현을 Supabase 쿼리로 바꿈.
+현재 `src/lib/blogsRepository.ts` 는 In-memory 구현. 구조는 그대로 유지하되, 내부 구현을 Supabase 쿼리로 바꿈.
 
-#### 4-1. `getPosts()`
+#### 4-1. `getBlogs()`
 
 기존:
 
 ```ts
-getPosts(): IPost[] {
-  return posts.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+getBlogs(): IBlog[] {
+  return blogs.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 ```
 
 Supabase 버전 (개념):
 
-- `supabaseServerClient.from("posts").select("*").order("created_at", { ascending: false })`
-- 결과를 `IPost` 형태로 매핑 (`is_good` → `isGood`, `created_at` → `createdAt` 등)
+- `supabaseServerClient.from("blogs").select("*").order("created_at", { ascending: false })`
+- 결과를 `IBlog` 형태로 매핑 (`is_good` → `isGood`, `created_at` → `createdAt` 등)
 
-#### 4-2. `getPostById(id)`
+#### 4-2. `getBlogById(id)`
 
-- `supabaseServerClient.from("posts").select("*").eq("id", id).single()`
+- `supabaseServerClient.from("blogs").select("*").eq("id", id).single()`
 - 없으면 `undefined` 반환
 
-#### 4-3. `createPost({ title, content })`
+#### 4-3. `createBlog({ title, content })`
 
-- `supabaseServerClient.from("posts").insert({...}).select().single()`
+- `supabaseServerClient.from("blogs").insert({...}).select().single()`
 - `is_good` 기본값은 `true` 로 설정
-- 반환된 행을 `IPost` 로 변환해서 리턴
+- 반환된 행을 `IBlog` 로 변환해서 리턴
 
-#### 4-4. `updatePost(id, input)`
+#### 4-4. `updateBlog(id, input)`
 
 - 입력된 필드(`title`, `content`, `isGood`)만 업데이트
 - `updated_at` 는 `now()`로 갱신
-- `supabaseServerClient.from("posts").update({...}).eq("id", id).select().single()`
+- `supabaseServerClient.from("blogs").update({...}).eq("id", id).select().single()`
 
-#### 4-5. `deletePost(id)`
+#### 4-5. `deleteBlog(id)`
 
-- `supabaseServerClient.from("posts").delete().eq("id", id)`
+- `supabaseServerClient.from("blogs").delete().eq("id", id)`
 - 삭제된 행 수를 보고 `true`/`false` 반환
 
-#### 4-6. `togglePostGood(id)`
+#### 4-6. `toggleBlogGood(id)`
 
-1. 먼저 `getPostById(id)` 로 현재 `isGood` 값을 읽고
-2. `!isGood` 으로 뒤집은 값을 `updatePost` 또는 직접 Supabase `update` 로 반영
-3. 업데이트된 행을 `IPost` 로 반환
+1. 먼저 `getBlogById(id)` 로 현재 `isGood` 값을 읽고
+2. `!isGood` 으로 뒤집은 값을 `updateBlog` 또는 직접 Supabase `update` 로 반영
+3. 업데이트된 행을 `IBlog` 로 반환
 
 ### 5. 나머지 레이어는 그대로 유지
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { IPost } from "@/types";
+import type { IBlog } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,9 +27,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-const GET_POSTS = `
-  query GetPosts {
-    posts {
+const GET_BLOGS = `
+  query GetBlogs {
+    blogs {
       id
       title
       content
@@ -40,17 +40,17 @@ const GET_POSTS = `
   }
 `;
 
-const CREATE_POST = `
-  mutation CreatePost($input: CreatePostInput!) {
-    createPost(input: $input) {
+const CREATE_BLOG = `
+  mutation CreateBlog($input: CreateBlogInput!) {
+    createBlog(input: $input) {
       id
     }
   }
 `;
 
-const UPDATE_POST = `
-  mutation UpdatePost($id: ID!, $input: UpdatePostInput!) {
-    updatePost(id: $id, input: $input) {
+const UPDATE_BLOG = `
+  mutation UpdateBlog($id: ID!, $input: UpdateBlogInput!) {
+    updateBlog(id: $id, input: $input) {
       id
       title
       content
@@ -60,15 +60,15 @@ const UPDATE_POST = `
   }
 `;
 
-const DELETE_POST = `
-  mutation DeletePost($id: ID!) {
-    deletePost(id: $id)
+const DELETE_BLOG = `
+  mutation DeleteBlog($id: ID!) {
+    deleteBlog(id: $id)
   }
 `;
 
-const TOGGLE_POST_GOOD = `
-  mutation TogglePostGood($id: ID!) {
-    togglePostGood(id: $id) {
+const TOGGLE_BLOG_GOOD = `
+  mutation ToggleBlogGood($id: ID!) {
+    toggleBlogGood(id: $id) {
       id
       isGood
       updatedAt
@@ -76,7 +76,7 @@ const TOGGLE_POST_GOOD = `
   }
 `;
 
-interface IEditablePostState {
+interface IEditableBlogState {
   id: string;
   title: string;
   content: string;
@@ -124,37 +124,37 @@ export default function HomePage() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["posts"],
-    queryFn: () => graphqlRequest<{ posts: IPost[] }>(GET_POSTS),
+    queryKey: ["blogs"],
+    queryFn: () => graphqlRequest<{ blogs: IBlog[] }>(GET_BLOGS),
   });
 
-  const posts = data?.posts ?? [];
+  const blogs = data?.blogs ?? [];
 
   const [createTitle, setCreateTitle] = useState("");
   const [createContent, setCreateContent] = useState("");
 
-  const [editingPost, setEditingPost] = useState<IEditablePostState | null>(null);
+  const [editingBlog, setEditingBlog] = useState<IEditableBlogState | null>(null);
   const [updating, setUpdating] = useState(false);
 
-  const createPostMutation = useMutation({
+  const createBlogMutation = useMutation({
     mutationFn: (variables: { title: string; content: string }) =>
       graphqlRequest<
-        { createPost: { id: string } },
+        { createBlog: { id: string } },
         { input: { title: string; content: string } }
-      >(CREATE_POST, {
+      >(CREATE_BLOG, {
         input: variables,
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
   });
 
-  const updatePostMutation = useMutation({
+  const updateBlogMutation = useMutation({
     mutationFn: (variables: { id: string; title: string; content: string }) =>
       graphqlRequest<
-        { updatePost: IPost },
+        { updateBlog: IBlog },
         { id: string; input: { title: string; content: string } }
-      >(UPDATE_POST, {
+      >(UPDATE_BLOG, {
         id: variables.id,
         input: {
           title: variables.title,
@@ -162,34 +162,34 @@ export default function HomePage() {
         },
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
   });
 
-  const deletePostMutation = useMutation({
+  const deleteBlogMutation = useMutation({
     mutationFn: (variables: { id: string }) =>
-      graphqlRequest<{ deletePost: boolean }, { id: string }>(DELETE_POST, {
+      graphqlRequest<{ deleteBlog: boolean }, { id: string }>(DELETE_BLOG, {
         id: variables.id,
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
   });
 
-  const togglePostGoodMutation = useMutation({
+  const toggleBlogGoodMutation = useMutation({
     mutationFn: (variables: { id: string }) =>
-      graphqlRequest<{ togglePostGood: { id: string } }, { id: string }>(
-        TOGGLE_POST_GOOD,
+      graphqlRequest<{ toggleBlogGood: { id: string } }, { id: string }>(
+        TOGGLE_BLOG_GOOD,
         {
           id: variables.id,
         },
       ),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
   });
 
-  async function handleCreatePost(event: React.FormEvent<HTMLFormElement>) {
+  async function handleCreateBlog(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!createTitle.trim() || !createContent.trim()) {
@@ -198,23 +198,23 @@ export default function HomePage() {
     }
 
     try {
-      await createPostMutation.mutateAsync({
+      await createBlogMutation.mutateAsync({
         title: createTitle.trim(),
         content: createContent.trim(),
       });
 
       setCreateTitle("");
       setCreateContent("");
-      toast.success("Post created.");
+      toast.success("Blog created.");
     } catch (mutationError) {
       console.error(mutationError);
-      toast.error("Failed to create post.");
+      toast.error("Failed to create blog.");
     }
   }
 
   async function handleToggleGood(id: string) {
     try {
-      await togglePostGoodMutation.mutateAsync({ id });
+      await toggleBlogGoodMutation.mutateAsync({ id });
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to toggle good/bad.");
@@ -222,32 +222,32 @@ export default function HomePage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm("Delete this post? This cannot be undone.")) {
+    if (!window.confirm("Delete this blog? This cannot be undone.")) {
       return;
     }
 
     try {
-      await deletePostMutation.mutateAsync({ id });
+      await deleteBlogMutation.mutateAsync({ id });
 
-      toast.success("Post deleted.");
+      toast.success("Blog deleted.");
     } catch (mutationError) {
       console.error(mutationError);
-      toast.error("Failed to delete post.");
+      toast.error("Failed to delete blog.");
     }
   }
 
-  function openEditDialog(post: IPost) {
-    setEditingPost({
-      id: post.id,
-      title: post.title,
-      content: post.content,
+  function openEditDialog(blog: IBlog) {
+    setEditingBlog({
+      id: blog.id,
+      title: blog.title,
+      content: blog.content,
     });
   }
 
   async function handleSaveEdit() {
-    if (!editingPost) return;
+    if (!editingBlog) return;
 
-    if (!editingPost.title.trim() || !editingPost.content.trim()) {
+    if (!editingBlog.title.trim() || !editingBlog.content.trim()) {
       toast.error("Title and content are required.");
       return;
     }
@@ -255,17 +255,17 @@ export default function HomePage() {
     try {
       setUpdating(true);
 
-      await updatePostMutation.mutateAsync({
-        id: editingPost.id,
-        title: editingPost.title.trim(),
-        content: editingPost.content.trim(),
+      await updateBlogMutation.mutateAsync({
+        id: editingBlog.id,
+        title: editingBlog.title.trim(),
+        content: editingBlog.content.trim(),
       });
 
-      toast.success("Post updated.");
-      setEditingPost(null);
+      toast.success("Blog updated.");
+      setEditingBlog(null);
     } catch (mutationError) {
       console.error(mutationError);
-      toast.error("Failed to update post.");
+      toast.error("Failed to update blog.");
     } finally {
       setUpdating(false);
     }
@@ -278,15 +278,15 @@ export default function HomePage() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">React Blog</h1>
             <p className="text-muted-foreground text-sm">
-              Local Next.js blog with GraphQL. Create, edit, delete, and mark posts as good or bad.
+              Local Next.js blog with GraphQL. Create, edit, delete, and mark blogs as good or bad.
             </p>
           </div>
         </header>
 
-        <section aria-label="Create post">
+        <section aria-label="Create blog">
           <Card>
             <CardHeader>
-              <CardTitle>New post</CardTitle>
+              <CardTitle>New blog</CardTitle>
               <CardDescription>Write something and publish it to the list below.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -308,42 +308,42 @@ export default function HomePage() {
                 size="sm"
                 onClick={(event) => {
                   // Wrap in a fake form submission for reuse of handler.
-                  handleCreatePost(event as unknown as React.FormEvent<HTMLFormElement>);
+                  handleCreateBlog(event as unknown as React.FormEvent<HTMLFormElement>);
                 }}
               >
-                Create post
+                Create blog
               </Button>
             </CardFooter>
           </Card>
         </section>
 
-        <section aria-label="Posts list" className="flex-1 space-y-4">
-          {isLoading && <p className="text-sm text-muted-foreground">Loading posts...</p>}
+        <section aria-label="Blogs list" className="flex-1 space-y-4">
+          {isLoading && <p className="text-sm text-muted-foreground">Loading blogs...</p>}
           {error && (
             <p className="text-sm text-destructive">
               {error instanceof Error ? error.message : "Failed to load posts."}
             </p>
           )}
 
-          {!isLoading && !error && posts.length === 0 && (
-            <p className="text-sm text-muted-foreground">No posts yet. Create your first one above.</p>
+          {!isLoading && !error && blogs.length === 0 && (
+            <p className="text-sm text-muted-foreground">No blogs yet. Create your first one above.</p>
           )}
 
           <div className="space-y-4">
-            {posts.map((post: IPost) => {
-              const createdLabel = new Date(post.createdAt).toLocaleString();
-              const updatedLabel = new Date(post.updatedAt).toLocaleString();
+            {blogs.map((blog: IBlog) => {
+              const createdLabel = new Date(blog.createdAt).toLocaleString();
+              const updatedLabel = new Date(blog.updatedAt).toLocaleString();
 
               return (
-                <Card key={post.id} className="border-border/70">
+                <Card key={blog.id} className="border-border/70">
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <CardTitle>{post.title}</CardTitle>
+                      <CardTitle>{blog.title}</CardTitle>
                       <CardDescription>
                         <span className="text-xs text-muted-foreground">
                           Created: {createdLabel}
                         </span>
-                        {post.updatedAt !== post.createdAt && (
+                        {blog.updatedAt !== blog.createdAt && (
                           <span className="ml-2 text-xs text-muted-foreground">
                             Updated: {updatedLabel}
                           </span>
@@ -351,37 +351,37 @@ export default function HomePage() {
                       </CardDescription>
                     </div>
                     <CardAction className="flex items-center gap-2">
-                      <Badge variant={post.isGood ? "default" : "destructive"}>
-                        {post.isGood ? "Good" : "Bad"}
+                      <Badge variant={blog.isGood ? "default" : "destructive"}>
+                        {blog.isGood ? "Good" : "Bad"}
                       </Badge>
                     </CardAction>
                   </CardHeader>
                   <CardContent>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{blog.content}</p>
                   </CardContent>
                   <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>Mark as good</span>
                       <Switch
                         size="sm"
-                        checked={post.isGood}
-                        onCheckedChange={() => handleToggleGood(post.id)}
+                        checked={blog.isGood}
+                        onCheckedChange={() => handleToggleGood(blog.id)}
                       />
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="xs"
-                        onClick={() => openEditDialog(post)}
-                        disabled={updating || updatePostMutation.isPending}
+                        onClick={() => openEditDialog(blog)}
+                        disabled={updating || updateBlogMutation.isPending}
                       >
                         Edit
                       </Button>
                       <Button
                         variant="destructive"
                         size="xs"
-                        onClick={() => handleDelete(post.id)}
-                        disabled={deletePostMutation.isPending}
+                        onClick={() => handleDelete(blog.id)}
+                        disabled={deleteBlogMutation.isPending}
                       >
                         Delete
                       </Button>
@@ -394,23 +394,23 @@ export default function HomePage() {
         </section>
 
         <Dialog
-          open={editingPost !== null}
+          open={editingBlog !== null}
           onOpenChange={(open) => {
             if (!open) {
-              setEditingPost(null);
+              setEditingBlog(null);
             }
           }}
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit post</DialogTitle>
+              <DialogTitle>Edit blog</DialogTitle>
             </DialogHeader>
-            {editingPost && (
+            {editingBlog && (
               <div className="space-y-4 pt-2">
                 <Input
-                  value={editingPost.title}
+                  value={editingBlog.title}
                   onChange={(event) =>
-                    setEditingPost((current) =>
+                    setEditingBlog((current: IEditableBlogState | null) =>
                       current
                         ? {
                             ...current,
@@ -422,9 +422,9 @@ export default function HomePage() {
                 />
                 <Textarea
                   rows={4}
-                  value={editingPost.content}
+                  value={editingBlog.content}
                   onChange={(event) =>
-                    setEditingPost((current) =>
+                    setEditingBlog((current: IEditableBlogState | null) =>
                       current
                         ? {
                             ...current,
@@ -441,7 +441,7 @@ export default function HomePage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setEditingPost(null)}
+                onClick={() => setEditingBlog(null)}
               >
                 Cancel
               </Button>

@@ -1,9 +1,9 @@
 import { createSchema, createYoga } from "graphql-yoga";
 import type { NextRequest } from "next/server";
-import { postsRepository } from "@/lib/activePostsRepository";
+import { blogsRepository } from "@/lib/activeBlogsRepository";
 
 const typeDefs = /* GraphQL */ `
-  type Post {
+  type Blog {
     id: ID!
     title: String!
     content: String!
@@ -13,44 +13,44 @@ const typeDefs = /* GraphQL */ `
   }
 
   type Query {
-    posts: [Post!]!
-    post(id: ID!): Post
+    blogs: [Blog!]!
+    blog(id: ID!): Blog
   }
 
-  input CreatePostInput {
+  input CreateBlogInput {
     title: String!
     content: String!
   }
 
-  input UpdatePostInput {
+  input UpdateBlogInput {
     title: String
     content: String
     isGood: Boolean
   }
 
   type Mutation {
-    createPost(input: CreatePostInput!): Post!
-    updatePost(id: ID!, input: UpdatePostInput!): Post!
-    deletePost(id: ID!): Boolean!
-    togglePostGood(id: ID!): Post!
+    createBlog(input: CreateBlogInput!): Blog!
+    updateBlog(id: ID!, input: UpdateBlogInput!): Blog!
+    deleteBlog(id: ID!): Boolean!
+    toggleBlogGood(id: ID!): Blog!
   }
 `;
 
 const resolvers = {
   Query: {
-    posts: () => postsRepository.getPosts(),
-    post: (_parent: unknown, args: { id: string }) => postsRepository.getPostById(args.id) ?? null,
+    blogs: () => blogsRepository.getBlogs(),
+    blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
   },
   Mutation: {
-    createPost: (_parent: unknown, args: { input: { title: string; content: string } }) =>
-      postsRepository.createPost(args.input),
-    updatePost: (
+    createBlog: (_parent: unknown, args: { input: { title: string; content: string } }) =>
+      blogsRepository.createBlog(args.input),
+    updateBlog: (
       _parent: unknown,
       args: { id: string; input: { title?: string; content?: string; isGood?: boolean } },
-    ) => postsRepository.updatePost(args.id, args.input),
-    deletePost: (_parent: unknown, args: { id: string }) => postsRepository.deletePost(args.id),
-    togglePostGood: (_parent: unknown, args: { id: string }) =>
-      postsRepository.togglePostGood(args.id),
+    ) => blogsRepository.updateBlog(args.id, args.input),
+    deleteBlog: (_parent: unknown, args: { id: string }) => blogsRepository.deleteBlog(args.id),
+    toggleBlogGood: (_parent: unknown, args: { id: string }) =>
+      blogsRepository.toggleBlogGood(args.id),
   },
 };
 
