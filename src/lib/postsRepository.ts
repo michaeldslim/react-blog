@@ -1,4 +1,4 @@
-import { IPost } from "@/types";
+import type { IPost, IPostsRepository } from "@/types";
 
 let posts: IPost[] = [
   {
@@ -23,16 +23,16 @@ function generateId(): string {
   return Math.random().toString(36).slice(2, 11);
 }
 
-export const postsRepository = {
-  getPosts(): IPost[] {
+export const postsRepository: IPostsRepository = {
+  async getPosts(): Promise<IPost[]> {
     return posts.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   },
 
-  getPostById(id: string): IPost | undefined {
+  async getPostById(id: string): Promise<IPost | undefined> {
     return posts.find((post) => post.id === id);
   },
 
-  createPost(input: { title: string; content: string }): IPost {
+  async createPost(input: { title: string; content: string }): Promise<IPost> {
     const now = new Date().toISOString();
     const newPost: IPost = {
       id: generateId(),
@@ -47,7 +47,7 @@ export const postsRepository = {
     return newPost;
   },
 
-  updatePost(id: string, input: { title?: string; content?: string; isGood?: boolean }): IPost {
+  async updatePost(id: string, input: { title?: string; content?: string; isGood?: boolean }): Promise<IPost> {
     const existing = posts.find((post) => post.id === id);
     if (!existing) {
       throw new Error("Post not found");
@@ -63,13 +63,13 @@ export const postsRepository = {
     return updated;
   },
 
-  deletePost(id: string): boolean {
+  async deletePost(id: string): Promise<boolean> {
     const before = posts.length;
     posts = posts.filter((post) => post.id !== id);
     return posts.length < before;
   },
 
-  togglePostGood(id: string): IPost {
+  async togglePostGood(id: string): Promise<IPost> {
     const existing = posts.find((post) => post.id === id);
     if (!existing) {
       throw new Error("Post not found");

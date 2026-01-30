@@ -1,6 +1,6 @@
 import { createSchema, createYoga } from "graphql-yoga";
 import type { NextRequest } from "next/server";
-import { postsRepository } from "@/lib/postsRepository";
+import { postsRepository } from "@/lib/activePostsRepository";
 
 const typeDefs = /* GraphQL */ `
   type Post {
