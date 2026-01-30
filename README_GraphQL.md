@@ -168,6 +168,24 @@ input UpdateBlogInput {
 - **KO**: `input` 타입은 **뮤테이션에 전달하는 복잡한 인자 객체**를 정의하는 데 사용됩니다.
 - **EN**: `input` types describe complex argument objects used by mutations.
 
+- **KO (조금 더 자세히)**:  
+  - `input`은 일반 `type`과 비슷하게 보이지만 **"입력 전용 타입"** 입니다.  
+  - 스키마에서 `input CreateBlogInput` 처럼 정의해 두면, 뮤테이션 시그니처에서 `input: CreateBlogInput!` 처럼 **인자(argument)의 타입으로만 사용할 수 있습니다.**  
+  - GraphQL 스펙에서 `input` 객체 타입은 **인자/변수 위치에서 사용되도록 설계되었고**, 일반적으로 필드의 반환 타입(응답)으로는 사용하지 않습니다.  
+  - 이 프로젝트에서는:
+    - `CreateBlogInput` → 새 블로그를 만들 때 필요한 필수 입력(제목, 내용)을 하나의 객체로 모아 표현.  
+    - `UpdateBlogInput` → 업데이트 시 일부 필드만 선택적으로 보낼 수 있도록, 모든 필드를 optional로 둔 입력 객체.  
+  - 이런 식으로 `input` 타입을 쓰면, 인자가 많아졌을 때도 구조가 깔끔해지고, 프론트엔드/백엔드가 **공유하는 입력 스펙**을 명확하게 유지할 수 있습니다.
+
+- **EN (in more detail)**:  
+  - An `input` looks similar to a regular `type`, but it defines an **input-only object type**.  
+  - Once you define `input CreateBlogInput` in the schema, you can use it in a mutation signature like `input: CreateBlogInput!` — **as the type of an argument only**.  
+  - Per the GraphQL spec, input object types are intended for **arguments (and variables)**, not as field return types. They are mostly used for mutations and sometimes for complex query filters.  
+  - In this project:
+    - `CreateBlogInput` groups the required fields for creating a blog (title, content) into a single argument object.  
+    - `UpdateBlogInput` allows partial updates by making every field optional so the client can send only the fields it wants to change.  
+  - Using `input` types keeps argument lists small and self-describing, and provides a clear, shared contract between frontend and backend for what shape of data is expected.
+
 `CreateBlogInput`
 
 - `title: String!`, `content: String!`
