@@ -37,9 +37,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ---
 
-## React Blog 프로젝트 정리 (한글)
-
-이 프로젝트는 학습용 로컬 블로그입니다. 스택은 다음과 같습니다.
+## React Blog 프로젝트 정리
 
 - **프레임워크**: Next.js (App Router) + React + TypeScript
 - **스타일/UI**: Tailwind CSS + ShadCN UI
@@ -47,8 +45,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - **데이터 레이어**: In-memory `postsRepository` (나중에 Supabase로 교체 예정)
 
 ### 1. 이 블로그를 처음부터 다시 만들 때 필요한 명령어
-
-아래 순서대로 실행하면, 동일한 구조의 프로젝트를 다시 만들 수 있습니다.
 
 ```bash
 # 1) 프로젝트 폴더 생성 및 이동
@@ -93,8 +89,6 @@ npm run dev
 http://localhost:3000 → 블로그 UI
 http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 ```
-
-그다음 아래 파일들을 생성/수정해서 현재와 같은 블로그 기능을 구성했습니다.
 
 #### 핵심 파일들
 
@@ -145,8 +139,6 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 ### 2. 현재 아키텍처 요약
 
-간단히 정리하면 다음과 같습니다.
-
 1. **UI 레이어 (Next.js + ShadCN)**
    - `src/app/page.tsx` 에서 ShadCN 컴포넌트로 화면 구성
    - 사용자 액션 시 GraphQL 요청을 전송
@@ -165,8 +157,6 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 ---
 
 ## Supabase 버전 `postsRepository` 설계 (계획)
-
-향후 In-memory 저장소 대신 **Supabase(Postgres)** 를 사용해서 영구 저장하려면, 아래 순서로 진행하면 됩니다.
 
 ### 1. Supabase 프로젝트 및 테이블 설계
 
@@ -215,11 +205,9 @@ export const supabaseServerClient = createClient(supabaseUrl, supabaseServiceRol
 });
 ```
 
-프로덕션에서는 키 관리/권한 설정을 더 신중히 해야 하지만, 로컬 학습용으로는 위와 같이 단순하게 시작할 수 있습니다.
-
 ### 4. `postsRepository`를 Supabase 기반으로 교체하는 전략
 
-현재 `src/lib/postsRepository.ts` 는 In-memory 구현입니다. 구조는 그대로 유지하되, 내부 구현을 Supabase 쿼리로 바꿉니다.
+현재 `src/lib/postsRepository.ts` 는 In-memory 구현입니다. 구조는 그대로 유지하되, 내부 구현을 Supabase 쿼리로 바꿈.
 
 #### 4-1. `getPosts()`
 
@@ -266,15 +254,8 @@ Supabase 버전 (개념):
 
 ### 5. 나머지 레이어는 그대로 유지
 
-Supabase 로 교체할 때 **바꾸지 않는 것들**:
-
 - GraphQL 스키마 (`src/app/api/graphql/route.ts`의 `typeDefs`)
 - GraphQL 리졸버 함수 시그니처
 - 프론트엔드 (`src/app/page.tsx`)의 GraphQL 쿼리/뮤테이션 및 UI
 
-즉, `postsRepository` 내부 구현만 Supabase로 바꾸면, UI와 GraphQL 요청 코드는 그대로 작동합니다.
-
----
-
-이 README 섹션은 로컬 학습용 프로젝트를 다시 만들거나, In-memory 저장소를 Supabase/Postgres 로 교체할 때 참고용으로 사용할 수 있도록 정리되었습니다.
-
+즉, `postsRepository` 내부 구현만 Supabase로 바꾸면, UI와 GraphQL 요청 코드는 그대로 작동.
