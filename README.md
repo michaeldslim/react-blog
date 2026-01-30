@@ -174,7 +174,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 ### 2. 환경 변수 설정
 
-프로젝트 루트에 `.env.local` 파일을 만들고 다음 값을 설정합니다.
+프로젝트 루트에 `.env.local` 파일을 만들고 다음 값을 설정.
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
@@ -184,7 +184,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 - `ANON_KEY` 는 클라이언트/서버에서 모두 사용 가능 (퍼블릭)
 - `SERVICE_ROLE_KEY` 는 **서버 전용**으로, 보안상 클라이언트에 노출되면 안 됨
-  - `postsRepository` 는 서버에서만 실행되므로, 필요하다면 SERVICE ROLE 키를 사용할 수 있습니다.
+  - `postsRepository` 는 서버에서만 실행되므로, 필요하다면 SERVICE ROLE 키를 사용할 수 있음.
 
 ### 3. Supabase 클라이언트 설치 및 초기화
 
@@ -207,7 +207,7 @@ export const supabaseServerClient = createClient(supabaseUrl, supabaseServiceRol
 
 ### 4. `postsRepository`를 Supabase 기반으로 교체하는 전략
 
-현재 `src/lib/postsRepository.ts` 는 In-memory 구현입니다. 구조는 그대로 유지하되, 내부 구현을 Supabase 쿼리로 바꿈.
+현재 `src/lib/postsRepository.ts` 는 In-memory 구현. 구조는 그대로 유지하되, 내부 구현을 Supabase 쿼리로 바꿈.
 
 #### 4-1. `getPosts()`
 
