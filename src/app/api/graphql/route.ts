@@ -61,7 +61,21 @@ const { handleRequest } = createYoga<{
   graphqlEndpoint: "/api/graphql",
 });
 
-export { handleRequest as GET, handleRequest as POST };
+export function GET(
+  request: NextRequest,
+  context: { params: Promise<Record<string, string>> },
+) {
+  void context;
+  return handleRequest(request, { req: request });
+}
+
+export function POST(
+  request: NextRequest,
+  context: { params: Promise<Record<string, string>> },
+) {
+  void context;
+  return handleRequest(request, { req: request });
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
