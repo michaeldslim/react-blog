@@ -1,5 +1,5 @@
 import type { IBlog, IBlogsRepository } from "@/types";
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "./supabaseClient";
 
 type BlogsRow = {
   id: string;
@@ -23,6 +23,7 @@ function mapRowToBlog(row: BlogsRow): IBlog {
 
 export const supabaseBlogsRepository: IBlogsRepository = {
   async getBlogs(): Promise<IBlog[]> {
+		const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
       .select("id, title, content, is_good, created_at, updated_at")
@@ -37,6 +38,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
   },
 
   async getBlogById(id: string): Promise<IBlog | undefined> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
       .select("id, title, content, is_good, created_at, updated_at")
@@ -55,6 +57,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
   },
 
   async createBlog(input: { title: string; content: string }): Promise<IBlog> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
       .insert({
@@ -75,6 +78,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     id: string,
     input: { title?: string; content?: string; isGood?: boolean },
   ): Promise<IBlog> {
+    const supabase = getSupabaseClient();
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -104,6 +108,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
   },
 
   async deleteBlog(id: string): Promise<boolean> {
+    const supabase = getSupabaseClient();
     const { error } = await supabase.from("blogs").delete().eq("id", id);
 
     if (error) {
@@ -115,6 +120,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
   },
 
   async toggleBlogGood(id: string): Promise<IBlog> {
+    const supabase = getSupabaseClient();
     const { data: existing, error: fetchError } = await supabase
       .from("blogs")
       .select("is_good")
