@@ -3,6 +3,8 @@ export interface IBlog {
   title: string;
   content: string;
   isGood: boolean;
+  likesCount: number;
+  dislikesCount: number;
   createdAt: string;
   updatedAt: string;
 }

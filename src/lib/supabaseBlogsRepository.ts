@@ -6,6 +6,8 @@ type BlogsRow = {
   title: string;
   content: string;
   is_good: boolean;
+  likes_count: number | null;
+  dislikes_count: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -16,6 +18,8 @@ function mapRowToBlog(row: BlogsRow): IBlog {
     title: row.title,
     content: row.content,
     isGood: row.is_good,
+    likesCount: row.likes_count ?? 0,
+    dislikesCount: row.dislikes_count ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -26,7 +30,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 		const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("id, title, content, is_good, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -41,7 +45,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("id, title, content, is_good, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
 
@@ -64,7 +68,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
         title: input.title,
         content: input.content,
       })
-      .select("id, title, content, is_good, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
       .single();
 
     if (error || !data) {
@@ -97,7 +101,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       .from("blogs")
       .update(updatePayload)
       .eq("id", id)
-      .select("id, title, content, is_good, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
       .single();
 
     if (error || !data) {
@@ -123,7 +127,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const supabase = getSupabaseClient();
     const { data: existing, error: fetchError } = await supabase
       .from("blogs")
-      .select("is_good")
+      .select("is_good, likes_count, dislikes_count")
       .eq("id", id)
       .single();
 
@@ -131,17 +135,42 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       throw new Error(`Supabase toggleBlogGood fetch error: ${fetchError?.message ?? "No data"}`);
     }
 
-    const current = existing as { is_good: boolean };
+    const current = existing as {
+      is_good: boolean;
+      likes_count: number | null;
+      dislikes_count: number | null;
+    };
     const newIsGood = !current.is_good;
+
+    let likesCount = current.likes_count ?? 0;
+    let dislikesCount = current.dislikes_count ?? 0;
+
+    if (!current.is_good) {
+      // bad -> good
+      likesCount += 1;
+      if (dislikesCount > 0) {
+        dislikesCount -= 1;
+      }
+    } else {
+      // good -> bad
+      dislikesCount += 1;
+      if (likesCount > 0) {
+        likesCount -= 1;
+      }
+    }
 
     const { data, error: updateError } = await supabase
       .from("blogs")
       .update({
         is_good: newIsGood,
+        likes_count: likesCount,
+        dislikes_count: dislikesCount,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .select("id, title, content, is_good, created_at, updated_at")
+      .select(
+        "id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at",
+      )
       .single();
 
     if (updateError || !data) {

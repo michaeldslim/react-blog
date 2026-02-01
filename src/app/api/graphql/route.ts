@@ -8,6 +8,8 @@ const typeDefs = /* GraphQL */ `
     title: String!
     content: String!
     isGood: Boolean!
+    likesCount: Int!
+    dislikesCount: Int!
     createdAt: String!
     updatedAt: String!
   }

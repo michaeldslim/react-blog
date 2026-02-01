@@ -6,6 +6,8 @@ let blogs: IBlog[] = [
     title: "Welcome to your React Blog",
     content: "This is your first post. You can create, edit, delete, and toggle good/bad.",
     isGood: true,
+    likesCount: 12,
+    dislikesCount: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -14,6 +16,8 @@ let blogs: IBlog[] = [
     title: "Second Post",
     content: "Use this project to experiment with GraphQL and Firebase later on.",
     isGood: false,
+    likesCount: 0,
+    dislikesCount: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -39,6 +43,8 @@ export const blogsRepository: IBlogsRepository = {
       title: input.title,
       content: input.content,
       isGood: true,
+      likesCount: 0,
+      dislikesCount: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -78,9 +84,28 @@ export const blogsRepository: IBlogsRepository = {
       throw new Error("Blog not found");
     }
 
+    let likesCount = existing.likesCount ?? 0;
+    let dislikesCount = existing.dislikesCount ?? 0;
+
+    if (!existing.isGood) {
+      // bad -> good
+      likesCount += 1;
+      if (dislikesCount > 0) {
+        dislikesCount -= 1;
+      }
+    } else {
+      // good -> bad
+      dislikesCount += 1;
+      if (likesCount > 0) {
+        likesCount -= 1;
+      }
+    }
+
     const updated: IBlog = {
       ...existing,
       isGood: !existing.isGood,
+      likesCount,
+      dislikesCount,
       updatedAt: new Date().toISOString(),
     };
 

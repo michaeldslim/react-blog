@@ -3,20 +3,18 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 
 import type { IBlog } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +32,8 @@ const GET_BLOGS = `
       title
       content
       isGood
+      likesCount
+      dislikesCount
       createdAt
       updatedAt
     }
@@ -55,6 +55,8 @@ const UPDATE_BLOG = `
       title
       content
       isGood
+      likesCount
+      dislikesCount
       updatedAt
     }
   }
@@ -71,6 +73,8 @@ const TOGGLE_BLOG_GOOD = `
     toggleBlogGood(id: $id) {
       id
       isGood
+      likesCount
+      dislikesCount
       updatedAt
     }
   }
@@ -349,23 +353,57 @@ export default function HomePage() {
                         )}
                       </CardDescription>
                     </div>
-                    <CardAction className="flex items-center gap-2">
-                      <Badge variant={blog.isGood ? "default" : "destructive"}>
-                        {blog.isGood ? "Good" : "Bad"}
-                      </Badge>
-                    </CardAction>
                   </CardHeader>
                   <CardContent>
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{blog.content}</p>
                   </CardContent>
                   <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>Mark as good</span>
-                      <Switch
-                        size="sm"
-                        checked={blog.isGood}
-                        onCheckedChange={() => handleToggleGood(blog.id)}
-                      />
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center overflow-hidden rounded-full bg-muted text-xs">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={`rounded-full cursor-pointer transition-transform transition-colors duration-150 hover:scale-105 active:scale-95 ${
+                            blog.isGood
+                              ? "bg-yellow-400 text-black hover:bg-yellow-400/90"
+                              : "text-muted-foreground hover:bg-muted/40"
+                          }`}
+                          onClick={() => {
+                            if (!blog.isGood) {
+                              void handleToggleGood(blog.id);
+                            }
+                          }}
+                          aria-label={blog.isGood ? "Liked" : "Like"}
+                        >
+                          <ThumbsUpIcon className="h-3 w-3" />
+                        </Button>
+                        <span className="px-2 text-xs font-medium">
+                          {blog.likesCount}
+                        </span>
+                        <div className="h-4 w-px bg-border" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={`rounded-full cursor-pointer transition-colors duration-150 ${
+                            !blog.isGood
+                              ? "bg-muted text-black hover:bg-muted/80"
+                              : "text-muted-foreground hover:bg-muted/40"
+                          }`}
+                          onClick={() => {
+                            if (blog.isGood) {
+                              void handleToggleGood(blog.id);
+                            }
+                          }}
+                          aria-label={!blog.isGood ? "Disliked" : "Dislike"}
+                        >
+                          <ThumbsDownIcon className="h-3 w-3" />
+                        </Button>
+                        <span className="px-2 text-xs font-medium">
+                          {blog.dislikesCount}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
