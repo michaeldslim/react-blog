@@ -277,9 +277,9 @@ export default function HomePage() {
       <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">React Blog</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">The Async Journal</h1>
             <p className="text-muted-foreground text-sm">
-              Local Next.js blog with GraphQL. Create, edit, delete, and mark blogs as good or bad.
+              Notes on modern web, React, and everything in between.
             </p>
           </div>
         </header>
