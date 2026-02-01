@@ -306,7 +306,9 @@ export default function HomePage() {
             <CardFooter className="flex justify-end gap-2">
               <Button
                 type="submit"
+                variant="default"
                 size="sm"
+                className="bg-blue-500 text-white hover:bg-blue-500/90"
                 onClick={(event) => {
                   // Wrap in a fake form submission for reuse of handler.
                   handleCreateBlog(event as unknown as React.FormEvent<HTMLFormElement>);
@@ -438,7 +440,11 @@ export default function HomePage() {
             }
           }}
         >
-          <DialogContent>
+          <DialogContent
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+            }}
+          >
             <DialogHeader>
               <DialogTitle>Edit blog</DialogTitle>
             </DialogHeader>
@@ -456,6 +462,15 @@ export default function HomePage() {
                         : current,
                     )
                   }
+                  onMouseDown={(event) => {
+                    const input = event.currentTarget;
+                    if (document.activeElement !== input) {
+                      event.preventDefault();
+                      input.focus();
+                      const length = input.value.length;
+                      input.setSelectionRange(length, length);
+                    }
+                  }}
                 />
                 <Textarea
                   rows={4}
@@ -482,7 +497,14 @@ export default function HomePage() {
               >
                 Cancel
               </Button>
-              <Button type="button" size="sm" onClick={handleSaveEdit} disabled={updating}>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="bg-blue-500 text-white hover:bg-blue-500/90"
+                onClick={handleSaveEdit}
+                disabled={updating}
+              >
                 {updating ? "Saving..." : "Save changes"}
               </Button>
             </DialogFooter>
