@@ -222,7 +222,7 @@ export default function HomePage() {
 - **CreateBlog**: 새 블로그 생성
 - **UpdateBlog**: 기존 블로그 수정
 - **DeleteBlog**: 블로그 삭제
-- **ToggleBlogGood**: `isGood` 토글
+- **ToggleBlogGood**: `isGood` 토글 (좋아요/싫어요 상태 및 `likesCount` / `dislikesCount` 카운트 업데이트)
 
 모두 공통적으로 **성공 시 `invalidateQueries({ queryKey: ["blogs"] })`**를 호출하여 목록을 최신 상태로 유지합니다.
 

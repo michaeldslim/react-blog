@@ -97,7 +97,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 - `src/types/index.ts`
   - Defines the `IBlog` interface
-  - Fields: `id`, `title`, `content`, `isGood`, `createdAt`, `updatedAt`
+  - Fields: `id`, `title`, `content`, `isGood`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
 
 - `src/lib/blogsRepository.ts`
   - Repository layer backed by an in-memory `blogs: IBlog[]` array (exported as `blogsRepository`)
@@ -138,8 +138,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
       - `Card`, `CardHeader`, `CardContent`, `CardFooter` for layout
       - `Input`, `Textarea` for create/edit forms
       - `Button` for create/edit/delete actions
-      - `Badge` to show Good/Bad state
-      - `Switch` to toggle `isGood`
+      - A YouTube-style pill UI at the bottom of each card showing like/dislike icon buttons and `likesCount` / `dislikesCount`
       - `Dialog` for the edit modal
 
 ### 2. Current architecture overview

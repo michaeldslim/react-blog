@@ -74,6 +74,8 @@ const typeDefs = /* GraphQL */ `
     title: String!
     content: String!
     isGood: Boolean!
+    likesCount: Int!
+    dislikesCount: Int!
     createdAt: String!
     updatedAt: String!
   }
@@ -124,8 +126,12 @@ const typeDefs = /* GraphQL */ `
   - **EN**: Title and content, both required fields.
 
 - `isGood: Boolean!`
-  - **KO**: 이 글이 "좋은" 글인지 여부를 나타내는 불리언 값입니다.
-  - **EN**: Boolean flag indicating whether the post is considered “good”.
+  - **KO**: 이 글이 현재 좋아요 상태인지(좋아요/싫어요 중 어떤 상태인지) 나타내는 불리언 값입니다.
+  - **EN**: Boolean flag indicating whether the post is currently in the “liked” state (like vs. dislike).
+
+- `likesCount: Int!`, `dislikesCount: Int!`
+  - **KO**: 각각 좋아요/싫어요 횟수를 나타내며, 프론트엔드에서 YouTube 스타일의 Like/Dislike UI를 렌더링할 때 사용됩니다.
+  - **EN**: Number of likes and dislikes, used to render the YouTube-style like/dislike UI on the frontend.
 
 - `createdAt: String!`, `updatedAt: String!`
   - **KO**: 생성/수정 시각을 문자열(ISO 날짜 문자열)로 저장합니다.

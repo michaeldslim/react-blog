@@ -97,7 +97,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 - `src/types/index.ts`
   - `IBlog` 인터페이스 정의
-  - 필드: `id`, `title`, `content`, `isGood`, `createdAt`, `updatedAt`
+  - 필드: `id`, `title`, `content`, `isGood`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
 
 - `src/lib/blogsRepository.ts`
   - In-memory 배열 `blogs: IBlog[]` 를 사용하는 저장소 레이어 (`blogsRepository` export)
@@ -138,8 +138,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
       - `Card`, `CardHeader`, `CardContent`, `CardFooter` 로 레이아웃 구성
       - `Input`, `Textarea` 로 글 작성/수정 폼 구현
       - `Button` 으로 생성/수정/삭제 액션
-      - `Badge` 로 Good/Bad 상태 표시
-      - `Switch` 로 `isGood` 토글
+      - 하단에 좋아요/싫어요 아이콘 버튼(YouTube 스타일)과 `likesCount` / `dislikesCount` 카운트를 보여주는 Pill UI
       - `Dialog` 로 글 수정 모달 구현
 
 ### 2. 현재 아키텍처 요약
