@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "echo NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL && echo NEXT_PUBLIC_SUPABASE_ANON_KEY_LEN=${#NEXT_PUBLIC_SUPABASE_ANON_KEY} && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "npm run lint",
