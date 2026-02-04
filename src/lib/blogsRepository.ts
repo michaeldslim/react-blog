@@ -8,6 +8,7 @@ let blogs: IBlog[] = [
     isGood: true,
     likesCount: 12,
     dislikesCount: 0,
+    imageUrl: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -18,6 +19,7 @@ let blogs: IBlog[] = [
     isGood: false,
     likesCount: 0,
     dislikesCount: 0,
+    imageUrl: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -36,7 +38,7 @@ export const blogsRepository: IBlogsRepository = {
     return blogs.find((blog) => blog.id === id);
   },
 
-  async createBlog(input: { title: string; content: string }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog> {
     const now = new Date().toISOString();
     const newBlog: IBlog = {
       id: generateId(),
@@ -45,6 +47,7 @@ export const blogsRepository: IBlogsRepository = {
       isGood: true,
       likesCount: 0,
       dislikesCount: 0,
+      imageUrl: input.imageUrl ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -55,7 +58,7 @@ export const blogsRepository: IBlogsRepository = {
 
   async updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null },
   ): Promise<IBlog> {
     const existing = blogs.find((blog) => blog.id === id);
     if (!existing) {

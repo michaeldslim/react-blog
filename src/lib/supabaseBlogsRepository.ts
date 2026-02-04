@@ -8,9 +8,33 @@ type BlogsRow = {
   is_good: boolean;
   likes_count: number | null;
   dislikes_count: number | null;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 };
+
+function extractStoragePathFromPublicUrl(publicUrl: string): string | null {
+  try {
+    const url = new URL(publicUrl);
+    const marker = "/object/public/";
+    const index = url.pathname.indexOf(marker);
+    if (index === -1) {
+      return null;
+    }
+
+    const after = url.pathname.slice(index + marker.length); // e.g. "blog-images/uuid.jpg" or "blog-images/blog-images/uuid.jpg"
+    const segments = after.split("/");
+    if (segments.length <= 1) {
+      return null;
+    }
+
+    // Remove bucket name (first segment) to get the object path inside the bucket.
+    segments.shift();
+    return segments.join("/");
+  } catch {
+    return null;
+  }
+}
 
 function mapRowToBlog(row: BlogsRow): IBlog {
   return {
@@ -20,6 +44,7 @@ function mapRowToBlog(row: BlogsRow): IBlog {
     isGood: row.is_good,
     likesCount: row.likes_count ?? 0,
     dislikesCount: row.dislikes_count ?? 0,
+    imageUrl: row.image_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -30,7 +55,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 		const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -45,7 +70,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
 
@@ -60,15 +85,16 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     return mapRowToBlog(data as BlogsRow);
   },
 
-  async createBlog(input: { title: string; content: string }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
       .insert({
         title: input.title,
         content: input.content,
+        image_url: input.imageUrl ?? null,
       })
-      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
       .single();
 
     if (error || !data) {
@@ -80,9 +106,21 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
   async updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null },
   ): Promise<IBlog> {
     const supabase = getSupabaseClient();
+    // Fetch existing image_url so we can clean up storage if it changes.
+    const { data: existing, error: fetchError } = await supabase
+      .from("blogs")
+      .select("image_url")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError) {
+      throw new Error(`Supabase updateBlog fetch error: ${fetchError.message}`);
+    }
+
+    const previousImageUrl = (existing as { image_url: string | null } | null)?.image_url ?? null;
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -96,16 +134,40 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     if (input.isGood !== undefined) {
       updatePayload.is_good = input.isGood;
     }
+    if (input.imageUrl !== undefined) {
+      updatePayload.image_url = input.imageUrl;
+    }
 
     const { data, error } = await supabase
       .from("blogs")
       .update(updatePayload)
       .eq("id", id)
-      .select("id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
       .single();
 
     if (error || !data) {
       throw new Error(`Supabase updateBlog error: ${error?.message ?? "No data"}`);
+    }
+
+    // If the imageUrl was removed or changed, delete the previous image object from storage.
+    if (previousImageUrl) {
+      const wantsRemoval = input.imageUrl === null;
+      const wantsReplacement =
+        input.imageUrl !== undefined && input.imageUrl !== null && input.imageUrl !== previousImageUrl;
+
+      if (wantsRemoval || wantsReplacement) {
+        const objectPath = extractStoragePathFromPublicUrl(previousImageUrl);
+        if (objectPath) {
+          const { error: storageError } = await supabase
+            .storage
+            .from("blog-images")
+            .remove([objectPath]);
+
+          if (storageError) {
+            throw new Error(`Supabase updateBlog storage error: ${storageError.message}`);
+          }
+        }
+      }
     }
 
     return mapRowToBlog(data as BlogsRow);
@@ -113,13 +175,40 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
   async deleteBlog(id: string): Promise<boolean> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase.from("blogs").delete().eq("id", id);
+    // First fetch the blog to get image_url (if any)
+    const { data: existing, error: fetchError } = await supabase
+      .from("blogs")
+      .select("image_url")
+      .eq("id", id)
+      .maybeSingle();
 
-    if (error) {
-      throw new Error(`Supabase deleteBlog error: ${error.message}`);
+    if (fetchError) {
+      throw new Error(`Supabase deleteBlog fetch error: ${fetchError.message}`);
     }
 
-    // Supabase가 에러를 던지지 않았다면 삭제가 시도된 것으로 간주
+    const imageUrl = (existing as { image_url: string | null } | null)?.image_url ?? null;
+
+    const { error: deleteError } = await supabase.from("blogs").delete().eq("id", id);
+
+    if (deleteError) {
+      throw new Error(`Supabase deleteBlog error: ${deleteError.message}`);
+    }
+
+    if (imageUrl) {
+      const objectPath = extractStoragePathFromPublicUrl(imageUrl);
+      if (objectPath) {
+        const { error: storageError } = await supabase
+          .storage
+          .from("blog-images")
+          .remove([objectPath]);
+
+        if (storageError) {
+          // Surface as an error so callers know cleanup failed.
+          throw new Error(`Supabase deleteBlog storage error: ${storageError.message}`);
+        }
+      }
+    }
+
     return true;
   },
 
@@ -169,7 +258,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       })
       .eq("id", id)
       .select(
-        "id, title, content, is_good, likes_count, dislikes_count, created_at, updated_at",
+        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
       )
       .single();
 

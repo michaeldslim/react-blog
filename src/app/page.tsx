@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { uploadBlogImage } from "@/lib/browserSupabaseClient";
 
 const GET_BLOGS = `
   query GetBlogs {
@@ -34,6 +36,7 @@ const GET_BLOGS = `
       isGood
       likesCount
       dislikesCount
+      imageUrl
       createdAt
       updatedAt
     }
@@ -84,6 +87,7 @@ interface IEditableBlogState {
   id: string;
   title: string;
   content: string;
+  imageUrl: string | null;
 }
 
 interface IGraphqlError {
@@ -136,33 +140,39 @@ export default function HomePage() {
 
   const [createTitle, setCreateTitle] = useState("");
   const [createContent, setCreateContent] = useState("");
+  const [createImageFile, setCreateImageFile] = useState<File | null>(null);
+  const [createImagePreviewUrl, setCreateImagePreviewUrl] = useState<string | null>(null);
+  const createFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [editingBlog, setEditingBlog] = useState<IEditableBlogState | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
   const createBlogMutation = useMutation({
-    mutationFn: (variables: { title: string; content: string }) =>
-      graphqlRequest<{ createBlog: { id: string } }, { input: { title: string; content: string } }>(
-        CREATE_BLOG,
-        {
-          input: variables,
-        },
-      ),
+    mutationFn: (variables: { title: string; content: string; imageUrl?: string | null }) =>
+      graphqlRequest<
+        { createBlog: { id: string } },
+        { input: { title: string; content: string; imageUrl?: string | null } }
+      >(CREATE_BLOG, {
+        input: variables,
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
   });
 
   const updateBlogMutation = useMutation({
-    mutationFn: (variables: { id: string; title: string; content: string }) =>
+    mutationFn: (variables: { id: string; title: string; content: string; imageUrl?: string | null }) =>
       graphqlRequest<
         { updateBlog: IBlog },
-        { id: string; input: { title: string; content: string } }
+        { id: string; input: { title: string; content: string; imageUrl?: string | null } }
       >(UPDATE_BLOG, {
         id: variables.id,
         input: {
           title: variables.title,
           content: variables.content,
+          ...(variables.imageUrl !== undefined ? { imageUrl: variables.imageUrl } : {}),
         },
       }),
     onSuccess: () => {
@@ -190,7 +200,7 @@ export default function HomePage() {
     },
   });
 
-  async function handleCreateBlog(event: React.FormEvent<HTMLFormElement>) {
+  async function handleCreateBlog(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!createTitle.trim() || !createContent.trim()) {
@@ -198,14 +208,31 @@ export default function HomePage() {
       return;
     }
 
+    let imageUrl: string | null = null;
+    if (createImageFile) {
+      try {
+        imageUrl = await uploadBlogImage(createImageFile);
+      } catch (uploadError) {
+        console.error(uploadError);
+        toast.error("Failed to upload image.");
+        return;
+      }
+    }
+
     try {
       await createBlogMutation.mutateAsync({
         title: createTitle.trim(),
         content: createContent.trim(),
+        imageUrl,
       });
 
       setCreateTitle("");
       setCreateContent("");
+      setCreateImageFile(null);
+      setCreateImagePreviewUrl(null);
+      if (createFileInputRef.current) {
+        createFileInputRef.current.value = "";
+      }
       toast.success("Blog created.");
     } catch (mutationError) {
       console.error(mutationError);
@@ -242,7 +269,9 @@ export default function HomePage() {
       id: blog.id,
       title: blog.title,
       content: blog.content,
+      imageUrl: blog.imageUrl ?? null,
     });
+    setEditImageFile(null);
   }
 
   async function handleSaveEdit() {
@@ -255,15 +284,28 @@ export default function HomePage() {
 
     try {
       setUpdating(true);
+      let nextImageUrl: string | null | undefined;
+
+      if (editImageFile) {
+        nextImageUrl = await uploadBlogImage(editImageFile);
+      } else if (editingBlog.imageUrl === null) {
+        // Explicit removal of existing image
+        nextImageUrl = null;
+      } else {
+        // No change to image
+        nextImageUrl = undefined;
+      }
 
       await updateBlogMutation.mutateAsync({
         id: editingBlog.id,
         title: editingBlog.title.trim(),
         content: editingBlog.content.trim(),
+        imageUrl: nextImageUrl,
       });
 
       toast.success("Blog updated.");
       setEditingBlog(null);
+      setEditImageFile(null);
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to update blog.");
@@ -302,6 +344,39 @@ export default function HomePage() {
                 onChange={(event) => setCreateContent(event.target.value)}
                 rows={4}
               />
+              <input
+                type="file"
+                accept="image/*"
+                ref={createFileInputRef}
+                className="text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-muted/80 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground file:hover:bg-muted/60 cursor-pointer"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (!file) {
+                    setCreateImageFile(null);
+                    setCreateImagePreviewUrl(null);
+                    return;
+                  }
+                  setCreateImageFile(file);
+                  const previewUrl = URL.createObjectURL(file);
+                  setCreateImagePreviewUrl(previewUrl);
+                }}
+              />
+              {createImagePreviewUrl && (
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    className="group inline-flex overflow-hidden rounded-md border bg-muted/40"
+                    onClick={() => setSelectedImageUrl(createImagePreviewUrl)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={createImagePreviewUrl}
+                      alt="Selected image preview"
+                      className="h-24 w-24 object-cover transition-transform group-hover:scale-105"
+                    />
+                  </button>
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
               <Button
@@ -309,9 +384,10 @@ export default function HomePage() {
                 variant="default"
                 size="sm"
                 className="bg-blue-500 text-white hover:bg-blue-500/90"
+                disabled={!createTitle.trim() || !createContent.trim() || createBlogMutation.isPending}
                 onClick={(event) => {
                   // Wrap in a fake form submission for reuse of handler.
-                  handleCreateBlog(event as unknown as React.FormEvent<HTMLFormElement>);
+                  handleCreateBlog(event as unknown as React.SyntheticEvent<HTMLFormElement>);
                 }}
               >
                 Create blog
@@ -356,7 +432,23 @@ export default function HomePage() {
                       </CardDescription>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-3">
+                    {blog.imageUrl && (
+                      <button
+                        type="button"
+                        className="group inline-flex overflow-hidden rounded-md border bg-muted/40"
+                        onClick={() => setSelectedImageUrl(blog.imageUrl ?? null)}
+                      >
+                        <Image
+                          src={blog.imageUrl}
+                          alt="Blog image"
+                          width={320}
+                          height={160}
+                          unoptimized
+                          className="h-40 w-full max-w-xs object-cover transition-transform group-hover:scale-105"
+                        />
+                      </button>
+                    )}
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{blog.content}</p>
                   </CardContent>
                   <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
@@ -433,10 +525,41 @@ export default function HomePage() {
         </section>
 
         <Dialog
+          open={selectedImageUrl !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedImageUrl(null);
+            }
+          }}
+        >
+          <DialogContent
+            className="max-w-3xl"
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <DialogHeader className="sr-only">
+              <DialogTitle>Blog image preview</DialogTitle>
+            </DialogHeader>
+            {selectedImageUrl && (
+              <Image
+                src={selectedImageUrl}
+                alt="Blog image"
+                width={1200}
+                height={800}
+                unoptimized
+                className="max-h-[80vh] w-full rounded-md object-contain"
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
           open={editingBlog !== null}
           onOpenChange={(open) => {
             if (!open) {
               setEditingBlog(null);
+              setEditImageFile(null);
             }
           }}
         >
@@ -486,6 +609,75 @@ export default function HomePage() {
                     )
                   }
                 />
+                <div className="space-y-2">
+                  {(editingBlog.imageUrl || editImageFile) && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="group inline-flex overflow-hidden rounded-md border bg-muted/40"
+                        onClick={() => {
+                          const url = editImageFile
+                            ? URL.createObjectURL(editImageFile)
+                            : editingBlog.imageUrl;
+                          if (url) {
+                            setSelectedImageUrl(url);
+                          }
+                        }}
+                      >
+                        {editImageFile ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={URL.createObjectURL(editImageFile)}
+                            alt="Edited image preview"
+                            className="h-24 w-24 object-cover transition-transform group-hover:scale-105"
+                          />
+                        ) : (
+                          editingBlog.imageUrl && (
+                            <Image
+                              src={editingBlog.imageUrl}
+                              alt="Current blog image"
+                              width={96}
+                              height={96}
+                              unoptimized
+                              className="h-24 w-24 object-cover transition-transform group-hover:scale-105"
+                            />
+                          )
+                        )}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={() => {
+                          setEditImageFile(null);
+                          setEditingBlog((current: IEditableBlogState | null) =>
+                            current
+                              ? {
+                                  ...current,
+                                  imageUrl: null,
+                                }
+                              : current,
+                          );
+                        }}
+                      >
+                        Remove image
+                      </Button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-muted/80 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground file:hover:bg-muted/60 cursor-pointer"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      if (!file) {
+                        setEditImageFile(null);
+                        return;
+                      }
+                      setEditImageFile(file);
+                    }}
+                  />
+                </div>
               </div>
             )}
             <DialogFooter className="pt-4">

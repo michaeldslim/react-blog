@@ -10,6 +10,7 @@ const typeDefs = /* GraphQL */ `
     isGood: Boolean!
     likesCount: Int!
     dislikesCount: Int!
+    imageUrl: String
     createdAt: String!
     updatedAt: String!
   }
@@ -22,12 +23,14 @@ const typeDefs = /* GraphQL */ `
   input CreateBlogInput {
     title: String!
     content: String!
+    imageUrl: String
   }
 
   input UpdateBlogInput {
     title: String
     content: String
     isGood: Boolean
+    imageUrl: String
   }
 
   type Mutation {
