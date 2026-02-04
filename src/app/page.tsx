@@ -148,6 +148,7 @@ export default function HomePage() {
   const [updating, setUpdating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const createBlogMutation = useMutation({
     mutationFn: (variables: { title: string; content: string; imageUrl?: string | null }) =>
@@ -344,23 +345,43 @@ export default function HomePage() {
                 onChange={(event) => setCreateContent(event.target.value)}
                 rows={4}
               />
-              <input
-                type="file"
-                accept="image/*"
-                ref={createFileInputRef}
-                className="text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-muted/80 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground file:hover:bg-muted/60 cursor-pointer"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  if (!file) {
-                    setCreateImageFile(null);
-                    setCreateImagePreviewUrl(null);
-                    return;
-                  }
-                  setCreateImageFile(file);
-                  const previewUrl = URL.createObjectURL(file);
-                  setCreateImagePreviewUrl(previewUrl);
-                }}
-              />
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={createFileInputRef}
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (!file) {
+                      setCreateImageFile(null);
+                      setCreateImagePreviewUrl(null);
+                      return;
+                    }
+                    setCreateImageFile(file);
+                    const previewUrl = URL.createObjectURL(file);
+                    setCreateImagePreviewUrl(previewUrl);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="font-medium"
+                  disabled={!createTitle.trim() || !createContent.trim()}
+                  onClick={() => {
+                    if (!createTitle.trim() || !createContent.trim()) {
+                      return;
+                    }
+                    createFileInputRef.current?.click();
+                  }}
+                >
+                  Choose file
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {createImageFile ? createImageFile.name : "No file chosen"}
+                </span>
+              </div>
               {createImagePreviewUrl && (
                 <div className="mt-1">
                   <button
@@ -664,19 +685,36 @@ export default function HomePage() {
                       </Button>
                     </div>
                   )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-muted/80 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground file:hover:bg-muted/60 cursor-pointer"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      if (!file) {
-                        setEditImageFile(null);
-                        return;
-                      }
-                      setEditImageFile(file);
-                    }}
-                  />
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={editFileInputRef}
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        if (!file) {
+                          setEditImageFile(null);
+                          return;
+                        }
+                        setEditImageFile(file);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      className="font-medium"
+                      onClick={() => {
+                        editFileInputRef.current?.click();
+                      }}
+                    >
+                      Choose file
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {editImageFile ? editImageFile.name : "No file chosen"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

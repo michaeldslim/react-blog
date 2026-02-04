@@ -8,18 +8,6 @@ export function getBrowserSupabaseClient(): SupabaseClient {
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!url || !anonKey) {
-      if (typeof window !== "undefined") {
-        // Minimal diagnostics to help debug missing env vars in production.
-        // Does not log full secrets, only presence and length.
-        // eslint-disable-next-line no-console
-        console.error("[SupabaseEnvDebug] Browser env missing", {
-          hasUrl: Boolean(url),
-          hasAnonKey: Boolean(anonKey),
-          urlLength: url?.length ?? 0,
-          anonKeyLength: anonKey?.length ?? 0,
-        });
-      }
-
       throw new Error(
         "Supabase browser env vars NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY are missing.",
       );
