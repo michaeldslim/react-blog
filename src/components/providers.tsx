@@ -14,7 +14,7 @@ export function Providers({ children }: IProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <Toaster richColors closeButton />
+      <Toaster richColors />
     </QueryClientProvider>
   );
 }

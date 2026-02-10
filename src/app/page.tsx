@@ -145,6 +145,7 @@ export default function HomePage() {
   const createFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [editingBlog, setEditingBlog] = useState<IEditableBlogState | null>(null);
+  const [editingInitialBlog, setEditingInitialBlog] = useState<IEditableBlogState | null>(null);
   const [updating, setUpdating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
@@ -251,28 +252,63 @@ export default function HomePage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm("Delete this blog? This cannot be undone.")) {
-      return;
-    }
-
-    try {
-      await deleteBlogMutation.mutateAsync({ id });
-
-      toast.success("Blog deleted.");
-    } catch (mutationError) {
-      console.error(mutationError);
-      toast.error("Failed to delete blog.");
-    }
+    toast.warning("Delete this blog?", {
+      description: "This action cannot be undone.",
+      duration: 6000,
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          try {
+            await deleteBlogMutation.mutateAsync({ id });
+            toast.success("Blog deleted.");
+          } catch (mutationError) {
+            console.error(mutationError);
+            toast.error("Failed to delete blog.");
+          }
+        },
+      },
+    });
   }
 
   function openEditDialog(blog: IBlog) {
-    setEditingBlog({
+    const nextState: IEditableBlogState = {
       id: blog.id,
       title: blog.title,
       content: blog.content,
       imageUrl: blog.imageUrl ?? null,
-    });
+    };
+    setEditingBlog(nextState);
+    setEditingInitialBlog(nextState);
     setEditImageFile(null);
+  }
+
+  function clearEditDialogState() {
+    setEditingBlog(null);
+    setEditingInitialBlog(null);
+    setEditImageFile(null);
+  }
+
+  function requestCloseEditDialog() {
+    if (!editingBlog || !editingInitialBlog) {
+      clearEditDialogState();
+      return;
+    }
+
+    const hasChanges =
+      editingBlog.title !== editingInitialBlog.title ||
+      editingBlog.content !== editingInitialBlog.content ||
+      editingBlog.imageUrl !== editingInitialBlog.imageUrl ||
+      editImageFile !== null;
+
+    if (hasChanges) {
+      toast.warning("You have unsaved changes", {
+        description: "Use Save changes to keep editing, or Cancel to discard.",
+        duration: 5000,
+      });
+      return;
+    }
+
+    clearEditDialogState();
   }
 
   async function handleSaveEdit() {
@@ -305,8 +341,7 @@ export default function HomePage() {
       });
 
       toast.success("Blog updated.");
-      setEditingBlog(null);
-      setEditImageFile(null);
+      clearEditDialogState();
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to update blog.");
@@ -579,8 +614,7 @@ export default function HomePage() {
           open={editingBlog !== null}
           onOpenChange={(open) => {
             if (!open) {
-              setEditingBlog(null);
-              setEditImageFile(null);
+              requestCloseEditDialog();
             }
           }}
         >
@@ -665,24 +699,6 @@ export default function HomePage() {
                           )
                         )}
                       </button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        onClick={() => {
-                          setEditImageFile(null);
-                          setEditingBlog((current: IEditableBlogState | null) =>
-                            current
-                              ? {
-                                  ...current,
-                                  imageUrl: null,
-                                }
-                              : current,
-                          );
-                        }}
-                      >
-                        Remove image
-                      </Button>
                     </div>
                   )}
                   <div className="flex items-center gap-3">
@@ -712,7 +728,7 @@ export default function HomePage() {
                       Choose file
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                      {editImageFile ? editImageFile.name : "No file chosen"}
+                      {editImageFile ? editImageFile.name : "choose file or replace file"}
                     </span>
                   </div>
                 </div>
@@ -723,7 +739,7 @@ export default function HomePage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setEditingBlog(null)}
+                onClick={clearEditDialogState}
               >
                 Cancel
               </Button>
