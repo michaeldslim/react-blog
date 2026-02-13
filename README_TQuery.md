@@ -1,11 +1,5 @@
 # TanStack Query (React Query) 사용 가이드 / Guide
 
-> 프로젝트: `react-blog`
->
-> 이 문서는 이 프로젝트에서 TanStack Query(React Query)가 어떻게 설정되고 사용되는지, 실제 코드 패턴과 함께 **한국어 + English** 로 설명합니다.
-
----
-
 ## 1. 개요 / Overview
 
 ### 1.1 TanStack Query란? / What is TanStack Query?
