@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 
+import { MarkdownContent } from "@/components/markdown-content";
 import type { IBlog } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -375,7 +376,7 @@ export default function HomePage() {
                 onChange={(event) => setCreateTitle(event.target.value)}
               />
               <Textarea
-                placeholder="Content"
+                placeholder="Content (use ``` for code blocks)"
                 value={createContent}
                 onChange={(event) => setCreateContent(event.target.value)}
                 rows={4}
@@ -505,7 +506,7 @@ export default function HomePage() {
                         />
                       </button>
                     )}
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{blog.content}</p>
+                    <MarkdownContent content={blog.content} />
                   </CardContent>
                   <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                     <div className="flex items-center gap-2">
@@ -651,6 +652,7 @@ export default function HomePage() {
                   }}
                 />
                 <Textarea
+                  placeholder="Content (use ``` for code blocks)"
                   rows={4}
                   value={editingBlog.content}
                   onChange={(event) =>
