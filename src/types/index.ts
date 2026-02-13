@@ -21,3 +21,5 @@ export interface IBlogsRepository {
   deleteBlog(id: string): Promise<boolean>;
   toggleBlogGood(id: string): Promise<IBlog>;
 }
+
+export type ThemeName = "dark-teal" | "dark-green" | "light-neutral";
