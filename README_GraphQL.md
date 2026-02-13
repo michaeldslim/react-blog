@@ -1,7 +1,3 @@
-# React Blog GraphQL Manual / 리액트 블로그 GraphQL 매뉴얼
-
----
-
 ## 1. GraphQL in this project – Big Picture / 전체 흐름
 
 - **KO**: 이 프로젝트는 **Next.js + graphql-yoga**를 사용해서 `/api/graphql` 경로에 GraphQL 서버를 만들고, 프론트엔드에서는 `fetch("/api/graphql")`를 통해 직접 GraphQL 쿼리/뮤테이션을 호출합니다. 추가로, `ApolloClient` 설정 파일도 있습니다.
