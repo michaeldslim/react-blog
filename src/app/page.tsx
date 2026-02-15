@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 
 import { MarkdownContent } from "@/components/markdown-content";
-import type { IBlog } from "@/types";
+import type { IBlog, ThemeName } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { uploadBlogImage } from "@/lib/browserSupabaseClient";
+import { useTheme } from "@/components/theme-provider";
 
 const GET_BLOGS = `
   query GetBlogs {
@@ -131,6 +132,14 @@ async function graphqlRequest<TData, TVariables = Record<string, unknown>>(
 
 export default function HomePage() {
   const queryClient = useQueryClient();
+
+  const {
+    theme,
+    options: themeOptionsContext,
+    handleThemeChange,
+    source: themeSource,
+    enableSwitcher,
+  } = useTheme();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["blogs"],
@@ -354,13 +363,31 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <header className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">The Async Journal</h1>
             <p className="text-muted-foreground text-sm">
               Notes on modern web, React, and everything in between.
             </p>
           </div>
+          {enableSwitcher && (
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <span className="text-muted-foreground">
+                Theme ({themeSource})
+              </span>
+              <select
+                className="rounded-md border bg-background px-2 py-1 text-xs sm:text-sm"
+                value={theme}
+                onChange={(event) => handleThemeChange(event.target.value as ThemeName)}
+              >
+                {themeOptionsContext.map((option) => (
+                  <option key={option.name} value={option.name}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </header>
 
         <section aria-label="Create blog">
