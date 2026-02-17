@@ -1,0 +1,61 @@
+---
+description: Next.js App Router project structure, naming, and formatting
+alwaysApply: true
+---
+
+# Next.js Project Conventions
+
+## Path alias
+- Use `@/` for `src/`: e.g. `@/components/ui/button`, `@/lib/utils`, `@/types`.
+
+## Types and interfaces
+- Define shared types in `src/types/index.ts`.
+- Use **`I` prefix** for interfaces: `IEntity`, `IRepository`, `IEditableEntityState`.
+- Use type aliases without prefix: `ThemeName`, `BlockType`.
+
+## Data layer
+- Repositories live in `src/lib/` and implement interfaces from `@/types` (e.g. `IRepository`).
+- Use an "active" repository module (e.g. `activeRepository`) in API routes so concrete implementations (in-memory, Supabase, etc.) can be swapped without changing route code.
+
+## Formatting (Prettier)
+- Semicolons, double quotes, trailing commas.
+- `printWidth: 100`, `tabWidth: 2`.
+- Run `npm run format` before committing.
+
+## Tech stack
+- Next.js (App Router), React, TypeScript (strict).
+- UI: Radix primitives, Tailwind v4, CVA, `cn()` from `@/lib/utils`.
+- Data: TanStack Query, GraphQL, optional Supabase.
+- Toasts: `sonner` (`toast.success`, `toast.error`, `toast.warning` with optional `action`).
+
+## Next.js and Routing
+
+### App Router structure
+- Use the **App Router** under `src/app/`:
+  - `layout.tsx` for shared layout and providers per route segment.
+  - `page.tsx` for the main page UI.
+  - Optional `loading.tsx` / `error.tsx` / `not-found.tsx` for each segment.
+- Group route-specific components under the same folder (e.g. `src/app/blog/[slug]/_components/*`).
+
+### Server vs Client components
+- Prefer **Server Components** by default for pages and layouts (data fetching, heavy computation, or logic that does not need the browser).
+- Mark components with `"use client"` only when they:
+  - Use React hooks (`useState`, `useEffect`, etc.).
+  - Access browser APIs (`window`, `document`, `localStorage`, etc.).
+  - Depend on client-only libraries.
+- Keep the boundary clear: fetch data and prepare props on the server, then pass them into smaller client components for interactivity.
+
+### API routes and route handlers
+- Use **Route Handlers** under `src/app/api/**/route.ts` for HTTP APIs.
+- Export HTTP methods as functions (e.g. `export async function GET()`, `POST`, `PUT`, `DELETE`).
+- Keep handlers thin:
+  - Parse and validate the request.
+  - Call the appropriate repository or service in `@/lib`.
+  - Return a typed JSON response.
+
+### Server Actions
+- Use **Server Actions** for form submissions or mutations that fit naturally into the component tree.
+- Mark actions with `"use server"` and keep them in:
+  - The same file as the component when they are tightly coupled, or
+  - A nearby module in the same route folder when shared.
+- Perform validation and authorization checks inside the action before mutating data.

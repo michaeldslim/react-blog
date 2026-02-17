@@ -1,0 +1,32 @@
+---
+description: GraphQL, API routes, and data-fetching conventions
+globs: "**/api/**/*.ts,**/lib/**/*.ts"
+alwaysApply: false
+---
+
+# GraphQL and Data Layer
+
+## Client: GraphQL over HTTP
+- Call GraphQL endpoints over **HTTP POST** with `Content-Type: application/json` and body `{ query, variables }`.
+- Prefer a typed helper such as `graphqlRequest<TData, TVariables>(endpoint, query, variables)` that:
+  - Throws on network errors or when the GraphQL `errors` field is present.
+  - Returns the typed `data` field on success.
+- Define queries and mutations as **string constants** (e.g. `GET_ITEMS`, `CREATE_ITEM`) in the same file or a shared module.
+
+## TanStack Query
+- Use **array query keys** for clarity and caching control, e.g. `queryKey: ["items"]`, `queryKey: ["item", id]`.
+- After mutations, **invalidate** relevant queries (by key) so clients see fresh data.
+- Use `useMutation` with a `mutationFn` that calls the GraphQL helper and an `onSuccess` handler that invalidates affected queries.
+- Surface errors in the UI (e.g. toast or inline message) instead of swallowing them.
+
+## API / Server Layer
+- Expose GraphQL via a **single HTTP endpoint** (commonly `/graphql`), independent of the underlying web framework.
+- Define a schema (SDL or code-first) and resolvers that are **thin** and delegate to a separate data layer.
+- Keep framework-specific details (routing, middleware, authentication) at the edge; pass a clean context into resolvers.
+- Centralize logging and error handling at the server layer where possible.
+
+## Data / Repository Layer
+- Implement a repository or service layer that hides the underlying data source (database, external API, etc.).
+- Let resolvers depend on **interfaces** (e.g. `IBlogRepository`) so implementations can be swapped without changing GraphQL schema or resolver signatures.
+- Keep data mapping and transformations (e.g. DB rows → domain models) in the repository layer, not in resolvers.
+- Prefer pure, side-effect-free functions in the data layer where feasible to simplify testing.

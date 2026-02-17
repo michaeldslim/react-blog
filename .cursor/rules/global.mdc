@@ -1,0 +1,32 @@
+---
+description: Global rules for the react-blog project
+alwaysApply: true
+---
+
+# Global Project Rules
+
+## Languages & Stack
+- Prefer **TypeScript** for all new code (`.ts`, `.tsx`).
+- Next.js (App Router) + React functional components only.
+- Follow existing project setup for tooling (ESLint, Prettier, Tailwind, CVA, Radix UI, TanStack Query, GraphQL, sonner).
+
+## Code Style & Structure
+- Match existing **imports, naming, and folder structure** when adding new files.
+- Keep components and modules **small and focused**. Extract shared logic into `@/lib` (for domain logic) or `@/types` (for shared types).
+- Avoid large, multi-purpose files. Prefer splitting into separate modules when responsibility diverges.
+
+## Type Safety
+- Prefer explicit types and interfaces over `any`.
+- Reuse shared types from `@/types/index.ts` when possible.
+- When adding new public APIs or modules, export well-named types/interfaces alongside the implementation.
+
+## Comments & Documentation
+- Do **not** remove existing comments or documentation unless they are clearly obsolete.
+- When changing important behavior, update relevant comments or add short notes where it helps future readers.
+
+## AI Assistant Usage
+- Treat AI-generated code as a **starting point**, not final truth.
+- Always verify:
+  - TypeScript compilation (no type errors).
+  - Runtime behavior (e.g. via local testing).
+- Prefer smaller, incremental changes that are easy to review and reason about.

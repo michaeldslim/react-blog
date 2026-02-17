@@ -1,0 +1,46 @@
+---
+description: Git commit message and workflow guidelines
+alwaysApply: false
+---
+
+# Git and Workflow
+
+## Commit Messages
+
+- Format: `<type>: <subject>`
+  - Examples:
+    - `feat: add blog search feature`
+    - `fix: handle theme cookie mismatch`
+    - `chore: update dependencies`
+
+- Types:
+  - `feat`: Add new feature
+  - `fix`: Fix bug
+  - `docs`: Modify documentation
+  - `style`: Code formatting, no behavior changes
+  - `refactor`: Code refactoring without behavior change
+  - `test`: Add or refactor tests
+  - `chore`: Tooling, build, dependencies, etc.
+
+- Subject line:
+  - Short (ideally **≤ 50 characters**).
+  - Use **present tense** (e.g. `add`, `fix`, `update`).
+  - Do **not** end with a period.
+
+- Body (optional but recommended for non-trivial changes):
+  - Explain **what** changed and **why** it changed, rather than how.
+  - Use bullet points (`-`) for multiple points when helpful.
+
+## Branching & PRs
+
+- Prefer **small, focused PRs** over large ones.
+- PR description should include:
+  - Short summary of the change.
+  - Any breaking changes or migration notes.
+  - Screenshots or recordings when UI behavior changes.
+
+## Pre-commit Checklist
+
+- Run tests or relevant checks when available.
+- Run formatting/linting commands (e.g. `npm run format`, `npm run lint`) before committing.
+- Ensure there are no obvious TypeScript or build errors.

@@ -1,0 +1,44 @@
+---
+description: React and UI component patterns for TSX files
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# React and UI Patterns
+
+## Components
+- Use **functional components** only.
+- Add `"use client"` only when the file uses hooks, browser APIs, or client-only libraries.
+ - Prefer **Server Components** by default. Use **Client Components** only when you need state, effects, event handlers, browser APIs, or client-only libraries.
+ - Keep components **small and focused**. Move complex data fetching and business logic into `@/lib` or dedicated hooks instead of UI components.
+
+## Styling
+- Use **`cn()`** from `@/lib/utils` for `className`: `className={cn("base", className)}`.
+- For variant-heavy components use **CVA** (`class-variance-authority`) and `VariantProps<typeof variants>`; merge with `cn(buttonVariants({ variant, size, className }))`.
+- UI primitives in `src/components/ui/` use **`data-slot`** (e.g. `data-slot="button"`, `data-slot="card"`).
+
+## Structure
+- Compose Radix UI primitives (Dialog, Label, Slot, etc.) for accessibility.
+- Prefer existing `@/components/ui/*` (Button, Card, Input, Textarea, Dialog, etc.) over custom elements.
+ - Page and layout components in `src/app/**` should primarily **compose existing components** and handle routing/data wiring. Extract reusable pieces into `@/components`.
+
+## Accessibility
+- Prefer **semantic HTML elements** (e.g. `button`, `a`, `nav`, `header`, `main`, `section`) over generic `div`s for interactive or structural elements.
+- Use appropriate **ARIA attributes** (`aria-label`, `aria-describedby`, `role`, etc.) when semantics are not obvious from the markup.
+- Maintain **keyboard accessibility**: interactive elements must be reachable via `Tab` and operable with `Enter`/`Space` where appropriate.
+- When possible, rely on Radix UI primitives to keep correct accessibility patterns.
+
+## Feedback
+- Use **sonner** for toasts: `toast.success("...")`, `toast.error("...")`, `toast.warning("...", { description, action: { label, onClick } })`.
+ - Choose toast variants by **meaning** (success, error, warning, info). Include `description` and/or `action` (e.g. Undo) when it improves clarity.
+
+## Example (className + CVA)
+```tsx
+import { cn } from "@/lib/utils";
+import { cva, type VariantProps } from "class-variance-authority";
+const variants = cva("base", { variants: { variant: { default: "...", outline: "..." } }, defaultVariants: { variant: "default" } });
+function Comp({ className, variant = "default", ...props }: React.ComponentProps<"div"> & VariantProps<typeof variants>) {
+  return <div data-slot="comp" className={cn(variants({ variant, className }))} {...props} />;
+}
+```
+
