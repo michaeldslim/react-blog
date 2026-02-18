@@ -44,7 +44,7 @@ export const blogsRepository: IBlogsRepository = {
       id: generateId(),
       title: input.title,
       content: input.content,
-      isGood: true,
+      isGood: false,
       likesCount: 0,
       dislikesCount: 0,
       imageUrl: input.imageUrl ?? null,
@@ -109,6 +109,50 @@ export const blogsRepository: IBlogsRepository = {
       isGood: !existing.isGood,
       likesCount,
       dislikesCount,
+      updatedAt: new Date().toISOString(),
+    };
+
+    blogs = blogs.map((blog) => (blog.id === id ? updated : blog));
+    return updated;
+  },
+
+  async likeBlog(id: string): Promise<IBlog> {
+    const existing = blogs.find((blog) => blog.id === id);
+    if (!existing) {
+      throw new Error("Blog not found");
+    }
+
+    if (existing.isGood) {
+      return existing;
+    }
+
+    const updated: IBlog = {
+      ...existing,
+      isGood: true,
+      likesCount: (existing.likesCount ?? 0) + 1,
+      dislikesCount: existing.isGood ? (existing.dislikesCount ?? 0) : Math.max((existing.dislikesCount ?? 0) - 1, 0),
+      updatedAt: new Date().toISOString(),
+    };
+
+    blogs = blogs.map((blog) => (blog.id === id ? updated : blog));
+    return updated;
+  },
+
+  async dislikeBlog(id: string): Promise<IBlog> {
+    const existing = blogs.find((blog) => blog.id === id);
+    if (!existing) {
+      throw new Error("Blog not found");
+    }
+
+    if (!existing.isGood) {
+      return existing;
+    }
+
+    const updated: IBlog = {
+      ...existing,
+      isGood: false,
+      dislikesCount: (existing.dislikesCount ?? 0) + 1,
+      likesCount: existing.isGood ? Math.max((existing.likesCount ?? 0) - 1, 0) : (existing.likesCount ?? 0),
       updatedAt: new Date().toISOString(),
     };
 

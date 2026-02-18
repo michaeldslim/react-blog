@@ -92,6 +92,9 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       .insert({
         title: input.title,
         content: input.content,
+        is_good: false,
+        likes_count: 0,
+        dislikes_count: 0,
         image_url: input.imageUrl ?? null,
       })
       .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
@@ -265,6 +268,126 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     if (updateError || !data) {
       throw new Error(`Supabase toggleBlogGood update error: ${updateError?.message ?? "No data"}`);
     }
+    return mapRowToBlog(data as BlogsRow);
+  },
+
+  async likeBlog(id: string): Promise<IBlog> {
+    const supabase = getSupabaseClient();
+    const { data: existing, error: fetchError } = await supabase
+      .from("blogs")
+      .select("is_good, likes_count, dislikes_count")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existing) {
+      throw new Error(`Supabase likeBlog fetch error: ${fetchError?.message ?? "No data"}`);
+    }
+
+    const current = existing as {
+      is_good: boolean;
+      likes_count: number | null;
+      dislikes_count: number | null;
+    };
+
+    if (current.is_good) {
+      const { data, error } = await supabase
+        .from("blogs")
+        .select(
+          "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
+        )
+        .eq("id", id)
+        .single();
+
+      if (error || !data) {
+        throw new Error(`Supabase likeBlog read error: ${error?.message ?? "No data"}`);
+      }
+
+      return mapRowToBlog(data as BlogsRow);
+    }
+
+    const likesCount = (current.likes_count ?? 0) + 1;
+    const dislikesCount = current.is_good
+      ? (current.dislikes_count ?? 0)
+      : Math.max((current.dislikes_count ?? 0) - 1, 0);
+
+    const { data, error: updateError } = await supabase
+      .from("blogs")
+      .update({
+        is_good: true,
+        likes_count: likesCount,
+        dislikes_count: dislikesCount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select(
+        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
+      )
+      .single();
+
+    if (updateError || !data) {
+      throw new Error(`Supabase likeBlog update error: ${updateError?.message ?? "No data"}`);
+    }
+
+    return mapRowToBlog(data as BlogsRow);
+  },
+
+  async dislikeBlog(id: string): Promise<IBlog> {
+    const supabase = getSupabaseClient();
+    const { data: existing, error: fetchError } = await supabase
+      .from("blogs")
+      .select("is_good, likes_count, dislikes_count")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existing) {
+      throw new Error(`Supabase dislikeBlog fetch error: ${fetchError?.message ?? "No data"}`);
+    }
+
+    const current = existing as {
+      is_good: boolean;
+      likes_count: number | null;
+      dislikes_count: number | null;
+    };
+
+    if (!current.is_good) {
+      const { data, error } = await supabase
+        .from("blogs")
+        .select(
+          "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
+        )
+        .eq("id", id)
+        .single();
+
+      if (error || !data) {
+        throw new Error(`Supabase dislikeBlog read error: ${error?.message ?? "No data"}`);
+      }
+
+      return mapRowToBlog(data as BlogsRow);
+    }
+
+    const dislikesCount = (current.dislikes_count ?? 0) + 1;
+    const likesCount = current.is_good
+      ? Math.max((current.likes_count ?? 0) - 1, 0)
+      : (current.likes_count ?? 0);
+
+    const { data, error: updateError } = await supabase
+      .from("blogs")
+      .update({
+        is_good: false,
+        likes_count: likesCount,
+        dislikes_count: dislikesCount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select(
+        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
+      )
+      .single();
+
+    if (updateError || !data) {
+      throw new Error(`Supabase dislikeBlog update error: ${updateError?.message ?? "No data"}`);
+    }
+
     return mapRowToBlog(data as BlogsRow);
   },
 };
