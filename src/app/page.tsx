@@ -28,6 +28,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { uploadBlogImage } from "@/lib/browserSupabaseClient";
 import { useTheme } from "@/components/theme-provider";
+import { AuthButtons } from "@/components/auth-buttons";
+import { useSession } from "next-auth/react";
 
 const GET_BLOGS = `
   query GetBlogs {
@@ -85,6 +87,30 @@ const TOGGLE_BLOG_GOOD = `
   }
 `;
 
+const LIKE_BLOG = `
+  mutation LikeBlog($id: ID!) {
+    likeBlog(id: $id) {
+      id
+      isGood
+      likesCount
+      dislikesCount
+      updatedAt
+    }
+  }
+`;
+
+const DISLIKE_BLOG = `
+  mutation DislikeBlog($id: ID!) {
+    dislikeBlog(id: $id) {
+      id
+      isGood
+      likesCount
+      dislikesCount
+      updatedAt
+    }
+  }
+`;
+
 interface IEditableBlogState {
   id: string;
   title: string;
@@ -132,6 +158,9 @@ async function graphqlRequest<TData, TVariables = Record<string, unknown>>(
 
 export default function HomePage() {
   const queryClient = useQueryClient();
+
+  const { data: session } = useSession();
+  const isAuthenticated = Boolean(session);
 
   const {
     theme,
@@ -204,10 +233,97 @@ export default function HomePage() {
 
   const toggleBlogGoodMutation = useMutation({
     mutationFn: (variables: { id: string }) =>
-      graphqlRequest<{ toggleBlogGood: { id: string } }, { id: string }>(TOGGLE_BLOG_GOOD, {
+      graphqlRequest<{ toggleBlogGood: Pick<IBlog, "id" | "isGood" | "likesCount" | "dislikesCount" | "updatedAt"> }, { id: string }>(
+        TOGGLE_BLOG_GOOD,
+        {
+        id: variables.id,
+        },
+      ),
+    onSuccess: (data) => {
+      const updated = data.toggleBlogGood;
+      queryClient.setQueryData(["blogs"], (current: { blogs: IBlog[] } | undefined) => {
+        if (!current) return current;
+        return {
+          blogs: current.blogs.map((blog) =>
+            blog.id === updated.id
+              ? {
+                  ...blog,
+                  isGood: updated.isGood,
+                  likesCount: updated.likesCount,
+                  dislikesCount: updated.dislikesCount,
+                  updatedAt: updated.updatedAt,
+                }
+              : blog,
+          ),
+        };
+      });
+
+      void queryClient.invalidateQueries({ queryKey: ["blogs"] });
+    },
+  });
+
+  const likeBlogMutation = useMutation({
+    mutationFn: (variables: { id: string }) =>
+      graphqlRequest<
+        {
+          likeBlog: Pick<IBlog, "id" | "isGood" | "likesCount" | "dislikesCount" | "updatedAt">;
+        },
+        { id: string }
+      >(LIKE_BLOG, {
         id: variables.id,
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const updated = data.likeBlog;
+      queryClient.setQueryData(["blogs"], (current: { blogs: IBlog[] } | undefined) => {
+        if (!current) return current;
+        return {
+          blogs: current.blogs.map((blog) =>
+            blog.id === updated.id
+              ? {
+                  ...blog,
+                  isGood: updated.isGood,
+                  likesCount: updated.likesCount,
+                  dislikesCount: updated.dislikesCount,
+                  updatedAt: updated.updatedAt,
+                }
+              : blog,
+          ),
+        };
+      });
+
+      void queryClient.invalidateQueries({ queryKey: ["blogs"] });
+    },
+  });
+
+  const dislikeBlogMutation = useMutation({
+    mutationFn: (variables: { id: string }) =>
+      graphqlRequest<
+        {
+          dislikeBlog: Pick<IBlog, "id" | "isGood" | "likesCount" | "dislikesCount" | "updatedAt">;
+        },
+        { id: string }
+      >(DISLIKE_BLOG, {
+        id: variables.id,
+      }),
+    onSuccess: (data) => {
+      const updated = data.dislikeBlog;
+      queryClient.setQueryData(["blogs"], (current: { blogs: IBlog[] } | undefined) => {
+        if (!current) return current;
+        return {
+          blogs: current.blogs.map((blog) =>
+            blog.id === updated.id
+              ? {
+                  ...blog,
+                  isGood: updated.isGood,
+                  likesCount: updated.likesCount,
+                  dislikesCount: updated.dislikesCount,
+                  updatedAt: updated.updatedAt,
+                }
+              : blog,
+          ),
+        };
+      });
+
       void queryClient.invalidateQueries({ queryKey: ["blogs"] });
     },
   });
@@ -252,12 +368,21 @@ export default function HomePage() {
     }
   }
 
-  async function handleToggleGood(id: string) {
+  async function handleLike(id: string) {
     try {
-      await toggleBlogGoodMutation.mutateAsync({ id });
+      await likeBlogMutation.mutateAsync({ id });
     } catch (mutationError) {
       console.error(mutationError);
-      toast.error("Failed to toggle good/bad.");
+      toast.error("Failed to like.");
+    }
+  }
+
+  async function handleDislike(id: string) {
+    try {
+      await dislikeBlogMutation.mutateAsync({ id });
+    } catch (mutationError) {
+      console.error(mutationError);
+      toast.error("Failed to dislike.");
     }
   }
 
@@ -370,26 +495,28 @@ export default function HomePage() {
               Notes on modern web, React, and everything in between.
             </p>
           </div>
-          {enableSwitcher && (
-            <div className="flex items-center gap-2 text-xs sm:text-sm">
-              <span className="text-muted-foreground">
-                Theme ({themeSource})
-              </span>
-              <select
-                className="rounded-md border bg-background px-2 py-1 text-xs sm:text-sm"
-                value={theme}
-                onChange={(event) => handleThemeChange(event.target.value as ThemeName)}
-              >
-                {themeOptionsContext.map((option) => (
-                  <option key={option.name} value={option.name}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {enableSwitcher && (
+              <div className="flex items-center gap-2 text-xs sm:text-sm">
+                <span className="text-muted-foreground">Theme ({themeSource})</span>
+                <select
+                  className="rounded-md border bg-background px-2 py-1 text-xs sm:text-sm"
+                  value={theme}
+                  onChange={(event) => handleThemeChange(event.target.value as ThemeName)}
+                >
+                  {themeOptionsContext.map((option) => (
+                    <option key={option.name} value={option.name}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <AuthButtons />
+          </div>
         </header>
 
+      {isAuthenticated && (
         <section aria-label="Create blog">
           <Card>
             <CardHeader>
@@ -479,14 +606,15 @@ export default function HomePage() {
             </CardFooter>
           </Card>
         </section>
+      )}
 
-        <section aria-label="Blogs list" className="flex-1 space-y-4">
-          {isLoading && <p className="text-sm text-muted-foreground">Loading blogs...</p>}
-          {error && (
-            <p className="text-sm text-destructive">
-              {error instanceof Error ? error.message : "Failed to load posts."}
-            </p>
-          )}
+      <section aria-label="Blogs list" className="flex-1 space-y-4">
+        {isLoading && <p className="text-sm text-muted-foreground">Loading blogs...</p>}
+        {error && (
+          <p className="text-sm text-destructive">
+            {error instanceof Error ? error.message : "Failed to load posts."}
+          </p>
+        )}
 
           {!isLoading && !error && blogs.length === 0 && (
             <p className="text-sm text-muted-foreground">
@@ -547,10 +675,16 @@ export default function HomePage() {
                               ? "bg-yellow-400 text-black hover:bg-yellow-400/90"
                               : "text-muted-foreground hover:bg-muted/40"
                           }`}
+                          disabled={toggleBlogGoodMutation.isPending || likeBlogMutation.isPending || dislikeBlogMutation.isPending}
                           onClick={() => {
-                            if (!blog.isGood) {
-                              void handleToggleGood(blog.id);
+                            if (blog.isGood) {
+                              toast.message("Already liked", {
+                                duration: 2000,
+                              });
+                              return;
                             }
+
+                            void handleLike(blog.id);
                           }}
                           aria-label={blog.isGood ? "Liked" : "Like"}
                         >
@@ -569,10 +703,16 @@ export default function HomePage() {
                               ? "bg-muted text-black hover:bg-muted/80"
                               : "text-muted-foreground hover:bg-muted/40"
                           }`}
+                          disabled={toggleBlogGoodMutation.isPending || likeBlogMutation.isPending || dislikeBlogMutation.isPending}
                           onClick={() => {
-                            if (blog.isGood) {
-                              void handleToggleGood(blog.id);
+                            if (!blog.isGood) {
+                              toast.message("Already disliked", {
+                                duration: 2000,
+                              });
+                              return;
                             }
+
+                            void handleDislike(blog.id);
                           }}
                           aria-label={!blog.isGood ? "Disliked" : "Dislike"}
                         >
@@ -584,22 +724,26 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        onClick={() => openEditDialog(blog)}
-                        disabled={updating || updateBlogMutation.isPending}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="xs"
-                        onClick={() => handleDelete(blog.id)}
-                        disabled={deleteBlogMutation.isPending}
-                      >
-                        Delete
-                      </Button>
+                      {isAuthenticated && (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() => openEditDialog(blog)}
+                          disabled={updating || updateBlogMutation.isPending}
+                        >
+                          Edit
+                        </Button>
+                      )}
+                      {isAuthenticated && (
+                        <Button
+                          variant="destructive"
+                          size="xs"
+                          onClick={() => handleDelete(blog.id)}
+                          disabled={deleteBlogMutation.isPending}
+                        >
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </CardFooter>
                 </Card>

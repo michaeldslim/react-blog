@@ -20,6 +20,8 @@ export interface IBlogsRepository {
   ): Promise<IBlog>;
   deleteBlog(id: string): Promise<boolean>;
   toggleBlogGood(id: string): Promise<IBlog>;
+  likeBlog(id: string): Promise<IBlog>;
+  dislikeBlog(id: string): Promise<IBlog>;
 }
 
 export type ThemeName = "dark-teal" | "dark-green" | "light-neutral";

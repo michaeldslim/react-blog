@@ -1,6 +1,7 @@
 import { createSchema, createYoga } from "graphql-yoga";
 import type { NextRequest } from "next/server";
 import { blogsRepository } from "@/lib/activeBlogsRepository";
+import { getToken } from "next-auth/jwt";
 
 const typeDefs = /* GraphQL */ `
   type Blog {
@@ -38,8 +39,15 @@ const typeDefs = /* GraphQL */ `
     updateBlog(id: ID!, input: UpdateBlogInput!): Blog!
     deleteBlog(id: ID!): Boolean!
     toggleBlogGood(id: ID!): Blog!
+    likeBlog(id: ID!): Blog!
+    dislikeBlog(id: ID!): Blog!
   }
 `;
+
+interface IGraphqlContext {
+  req: NextRequest;
+  token: Awaited<ReturnType<typeof getToken>> | null;
+}
 
 const resolvers = {
   Query: {
@@ -47,23 +55,52 @@ const resolvers = {
     blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
   },
   Mutation: {
-    createBlog: (_parent: unknown, args: { input: { title: string; content: string } }) =>
-      blogsRepository.createBlog(args.input),
+    createBlog: (
+      _parent: unknown,
+      args: { input: { title: string; content: string; imageUrl?: string | null } },
+      context: IGraphqlContext,
+    ) => {
+      if (!context.token) {
+        throw new Error("Unauthorized");
+      }
+      return blogsRepository.createBlog(args.input);
+    },
     updateBlog: (
       _parent: unknown,
-      args: { id: string; input: { title?: string; content?: string; isGood?: boolean } },
-    ) => blogsRepository.updateBlog(args.id, args.input),
-    deleteBlog: (_parent: unknown, args: { id: string }) => blogsRepository.deleteBlog(args.id),
+      args: {
+        id: string;
+        input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null };
+      },
+      context: IGraphqlContext,
+    ) => {
+      if (!context.token) {
+        throw new Error("Unauthorized");
+      }
+      return blogsRepository.updateBlog(args.id, args.input);
+    },
+    deleteBlog: (_parent: unknown, args: { id: string }, context: IGraphqlContext) => {
+      if (!context.token) {
+        throw new Error("Unauthorized");
+      }
+      return blogsRepository.deleteBlog(args.id);
+    },
     toggleBlogGood: (_parent: unknown, args: { id: string }) =>
       blogsRepository.toggleBlogGood(args.id),
+    likeBlog: (_parent: unknown, args: { id: string }) => blogsRepository.likeBlog(args.id),
+    dislikeBlog: (_parent: unknown, args: { id: string }) => blogsRepository.dislikeBlog(args.id),
   },
 };
 
 const { handleRequest } = createYoga<{
   req: NextRequest;
+  token?: Awaited<ReturnType<typeof getToken>> | null;
 }>({
   schema: createSchema({ typeDefs, resolvers }),
   graphqlEndpoint: "/api/graphql",
+  context: async ({ req }) => {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    return { req, token };
+  },
 });
 
 export function GET(
