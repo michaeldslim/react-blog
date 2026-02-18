@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ENABLE_GHCR_PUSH: "true"
+      ENABLE_GHCR_PUSH: "false"
       ENABLE_RAILWAY_DEPLOY: "false"
 
     permissions:
