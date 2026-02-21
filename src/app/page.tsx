@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
@@ -176,6 +176,20 @@ export default function HomePage() {
   });
 
   const blogs = data?.blogs ?? [];
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const POSTS_PER_PAGE = 5;
+  const totalPages = Math.max(1, Math.ceil(blogs.length / POSTS_PER_PAGE));
+  const paginatedBlogs = blogs.slice(
+    (currentPage - 1) * POSTS_PER_PAGE,
+    currentPage * POSTS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const [createTitle, setCreateTitle] = useState("");
   const [createContent, setCreateContent] = useState("");
@@ -623,7 +637,7 @@ export default function HomePage() {
           )}
 
           <div className="space-y-4">
-            {blogs.map((blog: IBlog) => {
+            {paginatedBlogs.map((blog: IBlog) => {
               const createdLabel = new Date(blog.createdAt).toLocaleString();
               const updatedLabel = new Date(blog.updatedAt).toLocaleString();
 
@@ -750,6 +764,59 @@ export default function HomePage() {
               );
             })}
           </div>
+          {blogs.length > 0 && (
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Showing
+                {" "}
+                {(currentPage - 1) * POSTS_PER_PAGE + 1}
+                {"-"}
+                {Math.min(currentPage * POSTS_PER_PAGE, blogs.length)}
+                {" "}
+                of
+                {" "}
+                {blogs.length}
+                {" "}
+                posts
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_value, index) => {
+                  const page = index + 1;
+                  const isCurrent = page === currentPage;
+                  return (
+                    <Button
+                      key={page}
+                      type="button"
+                      variant={isCurrent ? "default" : "outline"}
+                      size="sm"
+                      className={isCurrent ? "pointer-events-none" : ""}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  );
+                })}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages || blogs.length === 0}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </section>
 
         <Dialog
