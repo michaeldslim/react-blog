@@ -175,17 +175,100 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 ### 2. Environment variables
 
-Create a `.env.local` file in the project root and set the following values:
+Create a `.env.local` file in the project root and set (or adjust) the following values as needed.
+
+#### 2.1 Authentication (Google / NextAuth)
+
+```env
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+NEXTAUTH_SECRET=...
+NEXTAUTH_URL=http://localhost:3000
+```
+
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+  - Used by `next-auth` Google provider in `src/lib/authOptions.ts`.
+- `NEXTAUTH_SECRET`
+  - Used by NextAuth / GraphQL context (`src/app/api/graphql/route.ts`) to verify sessions.
+- `NEXTAUTH_URL`
+  - Base URL for your app, used by NextAuth for callback URLs. For local development this is typically `http://localhost:3000`. In production, set this to your deployed URL.
+
+#### 2.2 Supabase (server-side)
+
+```env
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+- Used by `src/lib/supabaseClient.ts`, `src/lib/themeServer.ts`, and `/api/theme`.
+- `SUPABASE_SERVICE_ROLE_KEY` is **server-only** and must not be exposed to the client.
+  - It is used only in server code (e.g. theme preferences, blog repository when `BLOGS_REPOSITORY=supabase`).
+
+#### 2.3 Supabase (browser-side)
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-- `ANON_KEY` can be used on both client and server (public)
-- `SERVICE_ROLE_KEY` is **server-only** and must not be exposed to the client
-  - `blogsRepository` runs only on the server, so using the service role key there is acceptable for local development (be more strict in production).
+- Used by `src/lib/browserSupabaseClient.ts` for uploading blog images.
+- `NEXT_PUBLIC_` prefix means these values are exposed to the browser (safe for public anon key and URL).
+
+#### 2.4 Blog backend selection
+
+```env
+BLOGS_REPOSITORY=memory   # or "supabase"
+```
+
+- Used by `src/lib/activeBlogsRepository.ts`.
+- Controls whether GraphQL resolvers use the in-memory repository or the Supabase-backed one.
+
+#### 2.5 Theme configuration
+
+```env
+NEXT_PUBLIC_THEME_SOURCE=local        # or "public"
+NEXT_PUBLIC_ENABLE_THEME_SWITCHER=true
+```
+
+- Used by `src/lib/themeConfig.ts` and `src/components/theme-provider.tsx`.
+- `NEXT_PUBLIC_THEME_SOURCE`
+  - `local`: themes come from local config only.
+  - `public`: can be extended to use public/shared theme options.
+- `NEXT_PUBLIC_ENABLE_THEME_SWITCHER`
+  - When set to `true`, enables the theme switcher UI and persists choices via `/api/theme`.
+
+#### 2.6 Pagination (blogs per page)
+
+```env
+NEXT_PUBLIC_BLOGS_PAGE_SIZE=5
+```
+
+- Used by `src/app/page.tsx`.
+- Controls the **default** number of blog posts per page for server-side pagination.
+- Users can still override per request via the `?pageSize=` query parameter in the URL.
+
+#### 2.7 Example `.env.local` for local development
+
+Below is an example of how your `.env.local` might look in local development. **Do not commit real secrets to Git.**
+
+```env
+# server-side Supabase repo
+SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# client-side uploads
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+
+BLOGS_REPOSITORY=supabase
+NEXT_PUBLIC_ENABLE_THEME_SWITCHER=true
+NEXT_PUBLIC_BLOGS_PAGE_SIZE=5
+
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+NEXTAUTH_SECRET=your-nextauth-secret
+NEXTAUTH_URL=http://localhost:3000
+```
 
 ### 3. Install and initialize Supabase client
 
