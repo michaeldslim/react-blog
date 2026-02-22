@@ -10,8 +10,14 @@ export interface IBlog {
   updatedAt: string;
 }
 
+export interface IBlogsPage {
+  items: IBlog[];
+  totalCount: number;
+}
+
 export interface IBlogsRepository {
   getBlogs(): Promise<IBlog[]>;
+  getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage>;
   getBlogById(id: string): Promise<IBlog | undefined>;
   createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog>;
   updateBlog(

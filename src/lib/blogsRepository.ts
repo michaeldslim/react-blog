@@ -1,4 +1,4 @@
-import type { IBlog, IBlogsRepository } from "@/types";
+import type { IBlog, IBlogsPage, IBlogsRepository } from "@/types";
 
 let blogs: IBlog[] = [
   {
@@ -32,6 +32,22 @@ function generateId(): string {
 export const blogsRepository: IBlogsRepository = {
   async getBlogs(): Promise<IBlog[]> {
     return blogs.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  },
+
+  async getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage> {
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : 1;
+
+    const sorted = blogs.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const totalCount = sorted.length;
+    const start = (safePage - 1) * safePageSize;
+    const end = start + safePageSize;
+    const items = sorted.slice(start, end);
+
+    return {
+      items,
+      totalCount,
+    };
   },
 
   async getBlogById(id: string): Promise<IBlog | undefined> {
