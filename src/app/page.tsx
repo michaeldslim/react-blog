@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
@@ -30,19 +30,23 @@ import { uploadBlogImage } from "@/lib/browserSupabaseClient";
 import { useTheme } from "@/components/theme-provider";
 import { AuthButtons } from "@/components/auth-buttons";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const GET_BLOGS = `
-  query GetBlogs {
-    blogs {
-      id
-      title
-      content
-      isGood
-      likesCount
-      dislikesCount
-      imageUrl
-      createdAt
-      updatedAt
+  query GetBlogs($page: Int!, $pageSize: Int!) {
+    blogs(page: $page, pageSize: $pageSize) {
+      items {
+        id
+        title
+        content
+        isGood
+        likesCount
+        dislikesCount
+        imageUrl
+        createdAt
+        updatedAt
+      }
+      totalCount
     }
   }
 `;
@@ -170,26 +174,79 @@ export default function HomePage() {
     enableSwitcher,
   } = useTheme();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["blogs"],
-    queryFn: () => graphqlRequest<{ blogs: IBlog[] }>(GET_BLOGS),
-  });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const blogs = data?.blogs ?? [];
+  const initialPageFromUrl = Number(searchParams.get("page"));
+  const initialPage =
+    Number.isFinite(initialPageFromUrl) && initialPageFromUrl > 0
+      ? Math.floor(initialPageFromUrl)
+      : 1;
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const POSTS_PER_PAGE = 5;
-  const totalPages = Math.max(1, Math.ceil(blogs.length / POSTS_PER_PAGE));
-  const paginatedBlogs = blogs.slice(
-    (currentPage - 1) * POSTS_PER_PAGE,
-    currentPage * POSTS_PER_PAGE,
+  const envPageSize = Number(process.env.NEXT_PUBLIC_BLOGS_PAGE_SIZE);
+  if (!Number.isFinite(envPageSize) || envPageSize <= 0) {
+    throw new Error("NEXT_PUBLIC_BLOGS_PAGE_SIZE must be a positive number");
+  }
+  const DEFAULT_POSTS_PER_PAGE = Math.floor(envPageSize);
+
+  const initialPageSizeFromUrl = Number(searchParams.get("pageSize"));
+  const POSTS_PER_PAGE =
+    Number.isFinite(initialPageSizeFromUrl) && initialPageSizeFromUrl > 0
+      ? Math.floor(initialPageSizeFromUrl)
+      : DEFAULT_POSTS_PER_PAGE;
+
+  const [currentPage, setCurrentPage] = useState(initialPage);
+
+  const updatePage = useCallback(
+    (nextPage: number) => {
+      const safeNextPage = Math.max(1, Math.floor(nextPage));
+      setCurrentPage(safeNextPage);
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", String(safeNextPage));
+      params.set("pageSize", String(POSTS_PER_PAGE));
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [POSTS_PER_PAGE, pathname, router, searchParams],
   );
 
+  const handlePageSizeChange = useCallback(
+    (nextPageSize: number) => {
+      const safePageSize = Math.max(1, Math.floor(nextPageSize));
+      setCurrentPage(1);
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", "1");
+      params.set("pageSize", String(safePageSize));
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [pathname, router, searchParams],
+  );
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["blogs", currentPage, POSTS_PER_PAGE],
+    queryFn: () =>
+      graphqlRequest<
+        { blogs: { items: IBlog[]; totalCount: number } },
+        { page: number; pageSize: number }
+      >(GET_BLOGS, {
+        page: currentPage,
+        pageSize: POSTS_PER_PAGE,
+      }),
+  });
+
+  const blogsPage = data?.blogs;
+  const blogs = blogsPage?.items ?? [];
+  const totalCount = blogsPage?.totalCount ?? 0;
+
+  const totalPages = totalCount > 0 ? Math.max(1, Math.ceil(totalCount / POSTS_PER_PAGE)) : 1;
+
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    if (totalCount > 0 && currentPage > totalPages) {
+      updatePage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalCount, totalPages, updatePage]);
 
   const [createTitle, setCreateTitle] = useState("");
   const [createContent, setCreateContent] = useState("");
@@ -630,14 +687,14 @@ export default function HomePage() {
           </p>
         )}
 
-          {!isLoading && !error && blogs.length === 0 && (
+          {!isLoading && !error && totalCount === 0 && (
             <p className="text-sm text-muted-foreground">
               No blogs yet. Create your first one above.
             </p>
           )}
 
           <div className="space-y-4">
-            {paginatedBlogs.map((blog: IBlog) => {
+            {blogs.map((blog: IBlog) => {
               const createdLabel = new Date(blog.createdAt).toLocaleString();
               const updatedLabel = new Date(blog.updatedAt).toLocaleString();
 
@@ -764,28 +821,42 @@ export default function HomePage() {
               );
             })}
           </div>
-          {blogs.length > 0 && (
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                Showing
-                {" "}
-                {(currentPage - 1) * POSTS_PER_PAGE + 1}
-                {"-"}
-                {Math.min(currentPage * POSTS_PER_PAGE, blogs.length)}
-                {" "}
-                of
-                {" "}
-                {blogs.length}
-                {" "}
-                posts
-              </p>
+          {totalCount > 0 && (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Showing
+                  {" "}
+                  {(currentPage - 1) * POSTS_PER_PAGE + 1}
+                  {"-"}
+                  {Math.min(currentPage * POSTS_PER_PAGE, totalCount)}
+                  {" "}
+                  of
+                  {" "}
+                  {totalCount}
+                  {" "}
+                  posts
+                </p>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>Per page:</span>
+                  <select
+                    className="rounded-md border bg-background px-1.5 py-0.5 text-xs"
+                    value={POSTS_PER_PAGE}
+                    onChange={(event) => handlePageSizeChange(Number(event.target.value))}
+                 >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                  </select>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  onClick={() => updatePage(currentPage - 1)}
                 >
                   Previous
                 </Button>
@@ -799,7 +870,7 @@ export default function HomePage() {
                       variant={isCurrent ? "default" : "outline"}
                       size="sm"
                       className={isCurrent ? "pointer-events-none" : ""}
-                      onClick={() => setCurrentPage(page)}
+                      onClick={() => updatePage(page)}
                     >
                       {page}
                     </Button>
@@ -809,8 +880,8 @@ export default function HomePage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={currentPage === totalPages || blogs.length === 0}
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages || totalCount === 0}
+                  onClick={() => updatePage(currentPage + 1)}
                 >
                   Next
                 </Button>

@@ -1,4 +1,4 @@
-import type { IBlog, IBlogsRepository } from "@/types";
+import type { IBlog, IBlogsPage, IBlogsRepository } from "@/types";
 import { getSupabaseClient } from "./supabaseClient";
 
 type BlogsRow = {
@@ -64,6 +64,36 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
     const rows = (data ?? []) as BlogsRow[];
     return rows.map(mapRowToBlog);
+  },
+
+  async getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage> {
+		const supabase = getSupabaseClient();
+
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : 1;
+
+    const from = (safePage - 1) * safePageSize;
+    const to = from + safePageSize - 1;
+
+    const { data, error, count } = await supabase
+      .from("blogs")
+      .select(
+        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      throw new Error(`Supabase getBlogsPaginated error: ${error.message}`);
+    }
+
+    const rows = (data ?? []) as BlogsRow[];
+
+    return {
+      items: rows.map(mapRowToBlog),
+      totalCount: count ?? rows.length,
+    };
   },
 
   async getBlogById(id: string): Promise<IBlog | undefined> {

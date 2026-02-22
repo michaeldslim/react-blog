@@ -16,8 +16,13 @@ const typeDefs = /* GraphQL */ `
     updatedAt: String!
   }
 
+  type BlogsPage {
+    items: [Blog!]!
+    totalCount: Int!
+  }
+
   type Query {
-    blogs: [Blog!]!
+    blogs(page: Int!, pageSize: Int!): BlogsPage!
     blog(id: ID!): Blog
   }
 
@@ -51,7 +56,8 @@ interface IGraphqlContext {
 
 const resolvers = {
   Query: {
-    blogs: () => blogsRepository.getBlogs(),
+    blogs: (_parent: unknown, args: { page: number; pageSize: number }) =>
+      blogsRepository.getBlogsPaginated(args.page, args.pageSize),
     blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
   },
   Mutation: {
