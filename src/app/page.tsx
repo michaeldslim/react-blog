@@ -32,6 +32,8 @@ import { AuthButtons } from "@/components/auth-buttons";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { BlogCalendar } from "@/components/blog-calendar";
+
 const GET_BLOGS = `
   query GetBlogs($page: Int!, $pageSize: Int!) {
     blogs(page: $page, pageSize: $pageSize) {
@@ -47,6 +49,10 @@ const GET_BLOGS = `
         updatedAt
       }
       totalCount
+    }
+    blogDates {
+      date
+      count
     }
   }
 `;
@@ -196,6 +202,8 @@ export default function HomePage() {
       ? Math.floor(initialPageSizeFromUrl)
       : DEFAULT_POSTS_PER_PAGE;
 
+  const selectedDate = searchParams.get("date");
+
   const [currentPage, setCurrentPage] = useState(initialPage);
 
   const updatePage = useCallback(
@@ -228,7 +236,7 @@ export default function HomePage() {
     queryKey: ["blogs", currentPage, POSTS_PER_PAGE],
     queryFn: () =>
       graphqlRequest<
-        { blogs: { items: IBlog[]; totalCount: number } },
+        { blogs: { items: IBlog[]; totalCount: number }; blogDates: { date: string; count: number }[] },
         { page: number; pageSize: number }
       >(GET_BLOGS, {
         page: currentPage,
@@ -237,8 +245,15 @@ export default function HomePage() {
   });
 
   const blogsPage = data?.blogs;
-  const blogs = blogsPage?.items ?? [];
-  const totalCount = blogsPage?.totalCount ?? 0;
+  let blogs = blogsPage?.items ?? [];
+  
+  // Filter blogs by selected date if one is provided
+  if (selectedDate) {
+    blogs = blogs.filter(blog => blog.createdAt.startsWith(selectedDate));
+  }
+  
+  const totalCount = selectedDate ? blogs.length : (blogsPage?.totalCount ?? 0);
+  const blogDates = data?.blogDates ?? [];
 
   const totalPages = totalCount > 0 ? Math.max(1, Math.ceil(totalCount / POSTS_PER_PAGE)) : 1;
 
@@ -558,7 +573,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">The Async Journal</h1>
@@ -587,111 +602,134 @@ export default function HomePage() {
           </div>
         </header>
 
-      {isAuthenticated && (
-        <section aria-label="Create blog">
-          <Card>
-            <CardHeader>
-              <CardTitle>New blog</CardTitle>
-              <CardDescription>Write something and publish it to the list below.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <Input
-                placeholder="Title"
-                value={createTitle}
-                onChange={(event) => setCreateTitle(event.target.value)}
-              />
-              <Textarea
-                placeholder="Content (use ``` for code blocks)"
-                value={createContent}
-                onChange={(event) => setCreateContent(event.target.value)}
-                rows={4}
-              />
-              <div className="flex items-center gap-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={createFileInputRef}
-                  className="sr-only"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] ?? null;
-                    if (!file) {
-                      setCreateImageFile(null);
-                      setCreateImagePreviewUrl(null);
-                      return;
-                    }
-                    setCreateImageFile(file);
-                    const previewUrl = URL.createObjectURL(file);
-                    setCreateImagePreviewUrl(previewUrl);
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="font-medium"
-                  disabled={!createTitle.trim() || !createContent.trim()}
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex-1 space-y-8 min-w-0">
+          {isAuthenticated && (
+            <section aria-label="Create blog">
+              <Card>
+                <CardHeader>
+                  <CardTitle>New blog</CardTitle>
+                  <CardDescription>Write something and publish it to the list below.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <Input
+                    placeholder="Title"
+                    value={createTitle}
+                    onChange={(event) => setCreateTitle(event.target.value)}
+                  />
+                  <Textarea
+                    placeholder="Content (use ``` for code blocks)"
+                    value={createContent}
+                    onChange={(event) => setCreateContent(event.target.value)}
+                    rows={4}
+                  />
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={createFileInputRef}
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        if (!file) {
+                          setCreateImageFile(null);
+                          setCreateImagePreviewUrl(null);
+                          return;
+                        }
+                        setCreateImageFile(file);
+                        const previewUrl = URL.createObjectURL(file);
+                        setCreateImagePreviewUrl(previewUrl);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="font-medium"
+                      disabled={!createTitle.trim() || !createContent.trim()}
+                      onClick={() => {
+                        if (!createTitle.trim() || !createContent.trim()) {
+                          return;
+                        }
+                        createFileInputRef.current?.click();
+                      }}
+                    >
+                      Choose file
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {createImageFile ? createImageFile.name : "No file chosen"}
+                    </span>
+                  </div>
+                  {createImagePreviewUrl && (
+                    <div className="mt-1">
+                      <button
+                        type="button"
+                        className="group inline-flex overflow-hidden rounded-md border bg-muted/40"
+                        onClick={() => setSelectedImageUrl(createImagePreviewUrl)}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={createImagePreviewUrl}
+                          alt="Selected image preview"
+                          className="h-24 w-24 object-cover transition-transform group-hover:scale-105"
+                        />
+                      </button>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2">
+                  <Button
+                    type="submit"
+                    variant="default"
+                    size="sm"
+                    className="bg-blue-500 text-white hover:bg-blue-500/90"
+                    disabled={!createTitle.trim() || !createContent.trim() || createBlogMutation.isPending}
+                    onClick={(event) => {
+                      // Wrap in a fake form submission for reuse of handler.
+                      handleCreateBlog(event as unknown as React.SyntheticEvent<HTMLFormElement>);
+                    }}
+                  >
+                    Create blog
+                  </Button>
+                </CardFooter>
+              </Card>
+            </section>
+          )}
+
+          <section aria-label="Blogs list" className="flex-1 space-y-4">
+            {isLoading && <p className="text-sm text-muted-foreground">Loading blogs...</p>}
+            {error && (
+              <p className="text-sm text-destructive">
+                {error instanceof Error ? error.message : "Failed to load posts."}
+              </p>
+            )}
+
+            {!isLoading && !error && totalCount === 0 && (
+              <p className="text-sm text-muted-foreground">
+                {selectedDate 
+                  ? `No blogs found for ${selectedDate}.` 
+                  : "No blogs yet. Create your first one above."}
+              </p>
+            )}
+
+            {selectedDate && (
+              <div className="flex items-center justify-between bg-muted/50 p-3 rounded-md border">
+                <p className="text-sm font-medium">
+                  Showing posts for: {selectedDate}
+                </p>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
                   onClick={() => {
-                    if (!createTitle.trim() || !createContent.trim()) {
-                      return;
-                    }
-                    createFileInputRef.current?.click();
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.delete("date");
+                    router.push(`${pathname}?${params.toString()}`);
                   }}
                 >
-                  Choose file
+                  Clear filter
                 </Button>
-                <span className="text-xs text-muted-foreground">
-                  {createImageFile ? createImageFile.name : "No file chosen"}
-                </span>
               </div>
-              {createImagePreviewUrl && (
-                <div className="mt-1">
-                  <button
-                    type="button"
-                    className="group inline-flex overflow-hidden rounded-md border bg-muted/40"
-                    onClick={() => setSelectedImageUrl(createImagePreviewUrl)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={createImagePreviewUrl}
-                      alt="Selected image preview"
-                      className="h-24 w-24 object-cover transition-transform group-hover:scale-105"
-                    />
-                  </button>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-              <Button
-                type="submit"
-                variant="default"
-                size="sm"
-                className="bg-blue-500 text-white hover:bg-blue-500/90"
-                disabled={!createTitle.trim() || !createContent.trim() || createBlogMutation.isPending}
-                onClick={(event) => {
-                  // Wrap in a fake form submission for reuse of handler.
-                  handleCreateBlog(event as unknown as React.SyntheticEvent<HTMLFormElement>);
-                }}
-              >
-                Create blog
-              </Button>
-            </CardFooter>
-          </Card>
-        </section>
-      )}
-
-      <section aria-label="Blogs list" className="flex-1 space-y-4">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading blogs...</p>}
-        {error && (
-          <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : "Failed to load posts."}
-          </p>
-        )}
-
-          {!isLoading && !error && totalCount === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No blogs yet. Create your first one above.
-            </p>
-          )}
+            )}
 
           <div className="space-y-4">
             {blogs.map((blog: IBlog) => {
@@ -888,7 +926,23 @@ export default function HomePage() {
               </div>
             </div>
           )}
-        </section>
+          </section>
+        </div>
+
+        <aside className="w-full lg:w-80 shrink-0">
+          <div className="sticky top-8 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Archive</CardTitle>
+                <CardDescription>Browse posts by date</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BlogCalendar postDates={blogDates} />
+              </CardContent>
+            </Card>
+          </div>
+        </aside>
+      </div>
 
         <Dialog
           open={selectedImageUrl !== null}
