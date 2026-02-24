@@ -115,6 +115,31 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     return mapRowToBlog(data as BlogsRow);
   },
 
+  async getBlogDates(): Promise<{ date: string; count: number }[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("blogs")
+      .select("created_at");
+
+    if (error) {
+      throw new Error(`Supabase getBlogDates error: ${error.message}`);
+    }
+
+    const dateCounts = new Map<string, number>();
+    
+    (data || []).forEach((row) => {
+      if (row.created_at) {
+        const date = row.created_at.split('T')[0];
+        dateCounts.set(date, (dateCounts.get(date) || 0) + 1);
+      }
+    });
+
+    return Array.from(dateCounts.entries()).map(([date, count]) => ({
+      date,
+      count,
+    }));
+  },
+
   async createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase

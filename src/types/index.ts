@@ -19,6 +19,7 @@ export interface IBlogsRepository {
   getBlogs(): Promise<IBlog[]>;
   getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage>;
   getBlogById(id: string): Promise<IBlog | undefined>;
+  getBlogDates(): Promise<{ date: string; count: number }[]>;
   createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog>;
   updateBlog(
     id: string,

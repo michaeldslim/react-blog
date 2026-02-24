@@ -21,9 +21,15 @@ const typeDefs = /* GraphQL */ `
     totalCount: Int!
   }
 
+  type BlogDateCount {
+    date: String!
+    count: Int!
+  }
+
   type Query {
     blogs(page: Int!, pageSize: Int!): BlogsPage!
     blog(id: ID!): Blog
+    blogDates: [BlogDateCount!]!
   }
 
   input CreateBlogInput {
@@ -59,6 +65,7 @@ const resolvers = {
     blogs: (_parent: unknown, args: { page: number; pageSize: number }) =>
       blogsRepository.getBlogsPaginated(args.page, args.pageSize),
     blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
+    blogDates: () => blogsRepository.getBlogDates(),
   },
   Mutation: {
     createBlog: (

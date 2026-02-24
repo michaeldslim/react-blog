@@ -54,6 +54,21 @@ export const blogsRepository: IBlogsRepository = {
     return blogs.find((blog) => blog.id === id);
   },
 
+  async getBlogDates(): Promise<{ date: string; count: number }[]> {
+    const dateCounts = new Map<string, number>();
+    
+    blogs.forEach((blog) => {
+      // Extract just the YYYY-MM-DD part from the ISO string
+      const date = blog.createdAt.split('T')[0];
+      dateCounts.set(date, (dateCounts.get(date) || 0) + 1);
+    });
+
+    return Array.from(dateCounts.entries()).map(([date, count]) => ({
+      date,
+      count,
+    }));
+  },
+
   async createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog> {
     const now = new Date().toISOString();
     const newBlog: IBlog = {
