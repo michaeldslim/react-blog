@@ -2,6 +2,7 @@ import { createSchema, createYoga } from "graphql-yoga";
 import type { NextRequest } from "next/server";
 import { blogsRepository } from "@/lib/activeBlogsRepository";
 import { getToken } from "next-auth/jwt";
+import type { JWT } from "next-auth/jwt";
 
 const typeDefs = /* GraphQL */ `
   type Blog {
@@ -12,6 +13,8 @@ const typeDefs = /* GraphQL */ `
     likesCount: Int!
     dislikesCount: Int!
     imageUrl: String
+    authorId: String
+    authorName: String
     createdAt: String!
     updatedAt: String!
   }
@@ -57,7 +60,7 @@ const typeDefs = /* GraphQL */ `
 
 interface IGraphqlContext {
   req: NextRequest;
-  token: Awaited<ReturnType<typeof getToken>> | null;
+  token: JWT | null;
 }
 
 const resolvers = {
@@ -74,11 +77,15 @@ const resolvers = {
       context: IGraphqlContext,
     ) => {
       if (!context.token) {
-        throw new Error("Unauthorized");
+        throw new Error("Unauthorized: sign in to create a post");
       }
-      return blogsRepository.createBlog(args.input);
+      return blogsRepository.createBlog({
+        ...args.input,
+        authorId: context.token.sub ?? null,
+        authorName: (context.token.name as string | undefined) ?? null,
+      });
     },
-    updateBlog: (
+    updateBlog: async (
       _parent: unknown,
       args: {
         id: string;
@@ -87,13 +94,23 @@ const resolvers = {
       context: IGraphqlContext,
     ) => {
       if (!context.token) {
-        throw new Error("Unauthorized");
+        throw new Error("Unauthorized: sign in to edit a post");
+      }
+      const blog = await blogsRepository.getBlogById(args.id);
+      if (!blog) throw new Error("Blog not found");
+      if (!context.token.isAdmin && blog.authorId !== context.token.sub) {
+        throw new Error("Forbidden: you can only edit your own posts");
       }
       return blogsRepository.updateBlog(args.id, args.input);
     },
-    deleteBlog: (_parent: unknown, args: { id: string }, context: IGraphqlContext) => {
+    deleteBlog: async (_parent: unknown, args: { id: string }, context: IGraphqlContext) => {
       if (!context.token) {
-        throw new Error("Unauthorized");
+        throw new Error("Unauthorized: sign in to delete a post");
+      }
+      const blog = await blogsRepository.getBlogById(args.id);
+      if (!blog) throw new Error("Blog not found");
+      if (!context.token.isAdmin && blog.authorId !== context.token.sub) {
+        throw new Error("Forbidden: you can only delete your own posts");
       }
       return blogsRepository.deleteBlog(args.id);
     },
@@ -106,13 +123,13 @@ const resolvers = {
 
 const { handleRequest } = createYoga<{
   req: NextRequest;
-  token?: Awaited<ReturnType<typeof getToken>> | null;
+  token?: JWT | null;
 }>({
   schema: createSchema({ typeDefs, resolvers }),
   graphqlEndpoint: "/api/graphql",
   context: async ({ req }) => {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    return { req, token };
+    return { req, token: (token as JWT | null) };
   },
 });
 

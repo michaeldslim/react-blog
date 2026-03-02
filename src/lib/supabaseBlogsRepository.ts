@@ -9,6 +9,8 @@ type BlogsRow = {
   likes_count: number | null;
   dislikes_count: number | null;
   image_url: string | null;
+  author_id: string | null;
+  author_name: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -45,6 +47,8 @@ function mapRowToBlog(row: BlogsRow): IBlog {
     likesCount: row.likes_count ?? 0,
     dislikesCount: row.dislikes_count ?? 0,
     imageUrl: row.image_url ?? null,
+    authorId: row.author_id ?? null,
+    authorName: row.author_name ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -55,7 +59,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 		const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -78,7 +82,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const { data, error, count } = await supabase
       .from("blogs")
       .select(
-        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
+        "id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at",
         { count: "exact" },
       )
       .order("created_at", { ascending: false })
@@ -100,7 +104,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
 
@@ -140,7 +144,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     }));
   },
 
-  async createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null }): Promise<IBlog> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
@@ -151,8 +155,10 @@ export const supabaseBlogsRepository: IBlogsRepository = {
         likes_count: 0,
         dislikes_count: 0,
         image_url: input.imageUrl ?? null,
+        author_id: input.authorId ?? null,
+        author_name: input.authorName ?? null,
       })
-      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
+      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at")
       .single();
 
     if (error || !data) {

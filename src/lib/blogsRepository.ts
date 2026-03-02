@@ -9,6 +9,8 @@ let blogs: IBlog[] = [
     likesCount: 12,
     dislikesCount: 0,
     imageUrl: null,
+    authorId: null,
+    authorName: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -20,6 +22,8 @@ let blogs: IBlog[] = [
     likesCount: 0,
     dislikesCount: 0,
     imageUrl: null,
+    authorId: null,
+    authorName: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -69,7 +73,7 @@ export const blogsRepository: IBlogsRepository = {
     }));
   },
 
-  async createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null }): Promise<IBlog> {
     const now = new Date().toISOString();
     const newBlog: IBlog = {
       id: generateId(),
@@ -79,6 +83,8 @@ export const blogsRepository: IBlogsRepository = {
       likesCount: 0,
       dislikesCount: 0,
       imageUrl: input.imageUrl ?? null,
+      authorId: input.authorId ?? null,
+      authorName: input.authorName ?? null,
       createdAt: now,
       updatedAt: now,
     };
