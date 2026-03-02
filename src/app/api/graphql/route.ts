@@ -15,6 +15,8 @@ const typeDefs = /* GraphQL */ `
     imageUrl: String
     authorId: String
     authorName: String
+    status: String!
+    publishedAt: String
     createdAt: String!
     updatedAt: String!
   }
@@ -39,6 +41,7 @@ const typeDefs = /* GraphQL */ `
     title: String!
     content: String!
     imageUrl: String
+    status: String
   }
 
   input UpdateBlogInput {
@@ -46,6 +49,7 @@ const typeDefs = /* GraphQL */ `
     content: String
     isGood: Boolean
     imageUrl: String
+    status: String
   }
 
   type Mutation {
@@ -65,15 +69,18 @@ interface IGraphqlContext {
 
 const resolvers = {
   Query: {
-    blogs: (_parent: unknown, args: { page: number; pageSize: number }) =>
-      blogsRepository.getBlogsPaginated(args.page, args.pageSize),
+    blogs: (_parent: unknown, args: { page: number; pageSize: number }, context: IGraphqlContext) =>
+      blogsRepository.getBlogsPaginated(args.page, args.pageSize, {
+        viewerUserId: context.token?.sub ?? null,
+        isAdmin: context.token?.isAdmin ?? false,
+      }),
     blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
     blogDates: () => blogsRepository.getBlogDates(),
   },
   Mutation: {
     createBlog: (
       _parent: unknown,
-      args: { input: { title: string; content: string; imageUrl?: string | null } },
+      args: { input: { title: string; content: string; imageUrl?: string | null; status?: string | null } },
       context: IGraphqlContext,
     ) => {
       if (!context.token) {
@@ -83,13 +90,14 @@ const resolvers = {
         ...args.input,
         authorId: context.token.sub ?? null,
         authorName: (context.token.name as string | undefined) ?? null,
+        status: (args.input.status as import("@/types").BlogStatus | undefined) ?? "published",
       });
     },
     updateBlog: async (
       _parent: unknown,
       args: {
         id: string;
-        input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null };
+        input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: string | null };
       },
       context: IGraphqlContext,
     ) => {
@@ -101,7 +109,10 @@ const resolvers = {
       if (!context.token.isAdmin && blog.authorId !== context.token.sub) {
         throw new Error("Forbidden: you can only edit your own posts");
       }
-      return blogsRepository.updateBlog(args.id, args.input);
+      return blogsRepository.updateBlog(args.id, {
+        ...args.input,
+        status: (args.input.status as import("@/types").BlogStatus | undefined),
+      });
     },
     deleteBlog: async (_parent: unknown, args: { id: string }, context: IGraphqlContext) => {
       if (!context.token) {

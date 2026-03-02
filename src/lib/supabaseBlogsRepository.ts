@@ -1,5 +1,8 @@
-import type { IBlog, IBlogsPage, IBlogsRepository } from "@/types";
+import type { IBlog, IBlogViewerOptions, IBlogsPage, IBlogsRepository } from "@/types";
 import { getSupabaseClient } from "./supabaseClient";
+
+const BLOG_SELECT =
+  "id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, status, published_at, created_at, updated_at";
 
 type BlogsRow = {
   id: string;
@@ -11,6 +14,8 @@ type BlogsRow = {
   image_url: string | null;
   author_id: string | null;
   author_name: string | null;
+  status: string | null;
+  published_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -49,51 +54,57 @@ function mapRowToBlog(row: BlogsRow): IBlog {
     imageUrl: row.image_url ?? null,
     authorId: row.author_id ?? null,
     authorName: row.author_name ?? null,
+    status: (row.status as IBlog["status"]) ?? "published",
+    publishedAt: row.published_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
 export const supabaseBlogsRepository: IBlogsRepository = {
-  async getBlogs(): Promise<IBlog[]> {
-		const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from("blogs")
-      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at")
-      .order("created_at", { ascending: false });
+  async getBlogs(options?: IBlogViewerOptions): Promise<IBlog[]> {
+    const supabase = getSupabaseClient();
+    let query = supabase.from("blogs").select(BLOG_SELECT).order("created_at", { ascending: false });
 
-    if (error) {
-      throw new Error(`Supabase getBlogs error: ${error.message}`);
+    if (!options?.isAdmin) {
+      const viewerId = options?.viewerUserId;
+      if (viewerId) {
+        query = query.or(`status.eq.published,author_id.eq.${viewerId}`);
+      } else {
+        query = query.eq("status", "published");
+      }
     }
 
-    const rows = (data ?? []) as BlogsRow[];
-    return rows.map(mapRowToBlog);
+    const { data, error } = await query;
+    if (error) throw new Error(`Supabase getBlogs error: ${error.message}`);
+    return ((data ?? []) as BlogsRow[]).map(mapRowToBlog);
   },
 
-  async getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage> {
-		const supabase = getSupabaseClient();
-
+  async getBlogsPaginated(page: number, pageSize: number, options?: IBlogViewerOptions): Promise<IBlogsPage> {
+    const supabase = getSupabaseClient();
     const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
     const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : 1;
-
     const from = (safePage - 1) * safePageSize;
     const to = from + safePageSize - 1;
 
-    const { data, error, count } = await supabase
+    let query = supabase
       .from("blogs")
-      .select(
-        "id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at",
-        { count: "exact" },
-      )
+      .select(BLOG_SELECT, { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    if (error) {
-      throw new Error(`Supabase getBlogsPaginated error: ${error.message}`);
+    if (!options?.isAdmin) {
+      const viewerId = options?.viewerUserId;
+      if (viewerId) {
+        query = query.or(`status.eq.published,author_id.eq.${viewerId}`);
+      } else {
+        query = query.eq("status", "published");
+      }
     }
 
+    const { data, error, count } = await query;
+    if (error) throw new Error(`Supabase getBlogsPaginated error: ${error.message}`);
     const rows = (data ?? []) as BlogsRow[];
-
     return {
       items: rows.map(mapRowToBlog),
       totalCount: count ?? rows.length,
@@ -104,18 +115,11 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at")
+      .select(BLOG_SELECT)
       .eq("id", id)
       .maybeSingle();
-
-    if (error) {
-      throw new Error(`Supabase getBlogById error: ${error.message}`);
-    }
-
-    if (!data) {
-      return undefined;
-    }
-
+    if (error) throw new Error(`Supabase getBlogById error: ${error.message}`);
+    if (!data) return undefined;
     return mapRowToBlog(data as BlogsRow);
   },
 
@@ -123,7 +127,8 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("blogs")
-      .select("created_at");
+      .select("created_at")
+      .eq("status", "published");
 
     if (error) {
       throw new Error(`Supabase getBlogDates error: ${error.message}`);
@@ -144,8 +149,10 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     }));
   },
 
-  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: IBlog["status"] }): Promise<IBlog> {
     const supabase = getSupabaseClient();
+    const status = input.status ?? "published";
+    const now = new Date().toISOString();
     const { data, error } = await supabase
       .from("blogs")
       .insert({
@@ -157,8 +164,10 @@ export const supabaseBlogsRepository: IBlogsRepository = {
         image_url: input.imageUrl ?? null,
         author_id: input.authorId ?? null,
         author_name: input.authorName ?? null,
+        status,
+        published_at: status === "published" ? now : null,
       })
-      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, created_at, updated_at")
+      .select(BLOG_SELECT)
       .single();
 
     if (error || !data) {
@@ -170,50 +179,48 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
   async updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: IBlog["status"]; publishedAt?: string | null },
   ): Promise<IBlog> {
     const supabase = getSupabaseClient();
-    // Fetch existing image_url so we can clean up storage if it changes.
     const { data: existing, error: fetchError } = await supabase
       .from("blogs")
-      .select("image_url")
+      .select("image_url, status, published_at")
       .eq("id", id)
       .maybeSingle();
 
-    if (fetchError) {
-      throw new Error(`Supabase updateBlog fetch error: ${fetchError.message}`);
-    }
+    if (fetchError) throw new Error(`Supabase updateBlog fetch error: ${fetchError.message}`);
 
-    const previousImageUrl = (existing as { image_url: string | null } | null)?.image_url ?? null;
-    const updatePayload: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
+    const existingRow = existing as { image_url: string | null; status: string | null; published_at: string | null } | null;
+    const previousImageUrl = existingRow?.image_url ?? null;
+    const existingStatus = existingRow?.status ?? "published";
+    const existingPublishedAt = existingRow?.published_at ?? null;
 
-    if (input.title !== undefined) {
-      updatePayload.title = input.title;
-    }
-    if (input.content !== undefined) {
-      updatePayload.content = input.content;
-    }
-    if (input.isGood !== undefined) {
-      updatePayload.is_good = input.isGood;
-    }
-    if (input.imageUrl !== undefined) {
-      updatePayload.image_url = input.imageUrl;
-    }
+    const now = new Date().toISOString();
+    const newStatus = input.status ?? existingStatus;
+    const publishedAt =
+      input.publishedAt !== undefined
+        ? input.publishedAt
+        : newStatus === "published" && !existingPublishedAt
+          ? now
+          : existingPublishedAt;
+
+    const updatePayload: Record<string, unknown> = { updated_at: now };
+    if (input.title !== undefined) updatePayload.title = input.title;
+    if (input.content !== undefined) updatePayload.content = input.content;
+    if (input.isGood !== undefined) updatePayload.is_good = input.isGood;
+    if (input.imageUrl !== undefined) updatePayload.image_url = input.imageUrl;
+    if (input.status !== undefined) updatePayload.status = newStatus;
+    updatePayload.published_at = publishedAt;
 
     const { data, error } = await supabase
       .from("blogs")
       .update(updatePayload)
       .eq("id", id)
-      .select("id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at")
+      .select(BLOG_SELECT)
       .single();
 
-    if (error || !data) {
-      throw new Error(`Supabase updateBlog error: ${error?.message ?? "No data"}`);
-    }
+    if (error || !data) throw new Error(`Supabase updateBlog error: ${error?.message ?? "No data"}`);
 
-    // If the imageUrl was removed or changed, delete the previous image object from storage.
     if (previousImageUrl) {
       const wantsRemoval = input.imageUrl === null;
       const wantsReplacement =
@@ -222,14 +229,8 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       if (wantsRemoval || wantsReplacement) {
         const objectPath = extractStoragePathFromPublicUrl(previousImageUrl);
         if (objectPath) {
-          const { error: storageError } = await supabase
-            .storage
-            .from("blog-images")
-            .remove([objectPath]);
-
-          if (storageError) {
-            throw new Error(`Supabase updateBlog storage error: ${storageError.message}`);
-          }
+          const { error: storageError } = await supabase.storage.from("blog-images").remove([objectPath]);
+          if (storageError) throw new Error(`Supabase updateBlog storage error: ${storageError.message}`);
         }
       }
     }
@@ -321,9 +322,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .select(
-        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
-      )
+      .select(BLOG_SELECT)
       .single();
 
     if (updateError || !data) {
@@ -351,18 +350,8 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     };
 
     if (current.is_good) {
-      const { data, error } = await supabase
-        .from("blogs")
-        .select(
-          "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
-        )
-        .eq("id", id)
-        .single();
-
-      if (error || !data) {
-        throw new Error(`Supabase likeBlog read error: ${error?.message ?? "No data"}`);
-      }
-
+      const { data, error } = await supabase.from("blogs").select(BLOG_SELECT).eq("id", id).single();
+      if (error || !data) throw new Error(`Supabase likeBlog read error: ${error?.message ?? "No data"}`);
       return mapRowToBlog(data as BlogsRow);
     }
 
@@ -373,22 +362,12 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
     const { data, error: updateError } = await supabase
       .from("blogs")
-      .update({
-        is_good: true,
-        likes_count: likesCount,
-        dislikes_count: dislikesCount,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ is_good: true, likes_count: likesCount, dislikes_count: dislikesCount, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select(
-        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
-      )
+      .select(BLOG_SELECT)
       .single();
 
-    if (updateError || !data) {
-      throw new Error(`Supabase likeBlog update error: ${updateError?.message ?? "No data"}`);
-    }
-
+    if (updateError || !data) throw new Error(`Supabase likeBlog update error: ${updateError?.message ?? "No data"}`);
     return mapRowToBlog(data as BlogsRow);
   },
 
@@ -411,18 +390,8 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     };
 
     if (!current.is_good) {
-      const { data, error } = await supabase
-        .from("blogs")
-        .select(
-          "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
-        )
-        .eq("id", id)
-        .single();
-
-      if (error || !data) {
-        throw new Error(`Supabase dislikeBlog read error: ${error?.message ?? "No data"}`);
-      }
-
+      const { data, error } = await supabase.from("blogs").select(BLOG_SELECT).eq("id", id).single();
+      if (error || !data) throw new Error(`Supabase dislikeBlog read error: ${error?.message ?? "No data"}`);
       return mapRowToBlog(data as BlogsRow);
     }
 
@@ -433,22 +402,12 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
     const { data, error: updateError } = await supabase
       .from("blogs")
-      .update({
-        is_good: false,
-        likes_count: likesCount,
-        dislikes_count: dislikesCount,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ is_good: false, likes_count: likesCount, dislikes_count: dislikesCount, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select(
-        "id, title, content, is_good, likes_count, dislikes_count, image_url, created_at, updated_at",
-      )
+      .select(BLOG_SELECT)
       .single();
 
-    if (updateError || !data) {
-      throw new Error(`Supabase dislikeBlog update error: ${updateError?.message ?? "No data"}`);
-    }
-
+    if (updateError || !data) throw new Error(`Supabase dislikeBlog update error: ${updateError?.message ?? "No data"}`);
     return mapRowToBlog(data as BlogsRow);
   },
 };

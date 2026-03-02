@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 
 import { MarkdownContent } from "@/components/markdown-content";
-import type { IBlog, ThemeName } from "@/types";
+import type { IBlog, ThemeName, BlogStatus } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -47,6 +48,8 @@ const GET_BLOGS = `
         imageUrl
         authorId
         authorName
+        status
+        publishedAt
         createdAt
         updatedAt
       }
@@ -63,6 +66,7 @@ const CREATE_BLOG = `
   mutation CreateBlog($input: CreateBlogInput!) {
     createBlog(input: $input) {
       id
+      status
     }
   }
 `;
@@ -76,6 +80,8 @@ const UPDATE_BLOG = `
       isGood
       likesCount
       dislikesCount
+      status
+      publishedAt
       updatedAt
     }
   }
@@ -128,6 +134,7 @@ interface IEditableBlogState {
   title: string;
   content: string;
   imageUrl: string | null;
+  status: BlogStatus;
 }
 
 interface IGraphqlError {
@@ -281,10 +288,10 @@ export default function HomePage() {
   const editFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const createBlogMutation = useMutation({
-    mutationFn: (variables: { title: string; content: string; imageUrl?: string | null }) =>
+    mutationFn: (variables: { title: string; content: string; imageUrl?: string | null; status: BlogStatus }) =>
       graphqlRequest<
-        { createBlog: { id: string } },
-        { input: { title: string; content: string; imageUrl?: string | null } }
+        { createBlog: { id: string; status: string } },
+        { input: { title: string; content: string; imageUrl?: string | null; status: BlogStatus } }
       >(CREATE_BLOG, {
         input: variables,
       }),
@@ -294,16 +301,17 @@ export default function HomePage() {
   });
 
   const updateBlogMutation = useMutation({
-    mutationFn: (variables: { id: string; title: string; content: string; imageUrl?: string | null }) =>
+    mutationFn: (variables: { id: string; title: string; content: string; imageUrl?: string | null; status?: BlogStatus }) =>
       graphqlRequest<
         { updateBlog: IBlog },
-        { id: string; input: { title: string; content: string; imageUrl?: string | null } }
+        { id: string; input: { title: string; content: string; imageUrl?: string | null; status?: BlogStatus } }
       >(UPDATE_BLOG, {
         id: variables.id,
         input: {
           title: variables.title,
           content: variables.content,
           ...(variables.imageUrl !== undefined ? { imageUrl: variables.imageUrl } : {}),
+          ...(variables.status !== undefined ? { status: variables.status } : {}),
         },
       }),
     onSuccess: () => {
@@ -418,9 +426,7 @@ export default function HomePage() {
     },
   });
 
-  async function handleCreateBlog(event: React.SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function handleCreateBlog(status: BlogStatus) {
     if (!createTitle.trim() || !createContent.trim()) {
       toast.error("Title and content are required.");
       return;
@@ -447,6 +453,7 @@ export default function HomePage() {
         title: createTitle.trim(),
         content: createContent.trim(),
         imageUrl,
+        status,
       });
 
       setCreateTitle("");
@@ -456,7 +463,7 @@ export default function HomePage() {
       if (createFileInputRef.current) {
         createFileInputRef.current.value = "";
       }
-      toast.success("Blog created.");
+      toast.success(status === "draft" ? "Saved as draft." : "Blog published.");
     } catch (mutationError) {
       console.error(mutationError);
       toast.error("Failed to create blog.");
@@ -506,6 +513,7 @@ export default function HomePage() {
       title: blog.title,
       content: blog.content,
       imageUrl: blog.imageUrl ?? null,
+      status: blog.status,
     };
     setEditingBlog(nextState);
     setEditingInitialBlog(nextState);
@@ -528,6 +536,7 @@ export default function HomePage() {
       editingBlog.title !== editingInitialBlog.title ||
       editingBlog.content !== editingInitialBlog.content ||
       editingBlog.imageUrl !== editingInitialBlog.imageUrl ||
+      editingBlog.status !== editingInitialBlog.status ||
       editImageFile !== null;
 
     if (hasChanges) {
@@ -580,9 +589,12 @@ export default function HomePage() {
         title: editingBlog.title.trim(),
         content: editingBlog.content.trim(),
         imageUrl: nextImageUrl,
+        status: editingBlog.status,
       });
 
-      toast.success("Blog updated.");
+      toast.success(
+        editingBlog.status === "draft" ? "Saved as draft." : "Blog updated.",
+      );
       clearEditDialogState();
     } catch (mutationError) {
       console.error(mutationError);
@@ -703,17 +715,23 @@ export default function HomePage() {
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2">
                   <Button
-                    type="submit"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!createTitle.trim() || !createContent.trim() || createBlogMutation.isPending}
+                    onClick={() => void handleCreateBlog("draft")}
+                  >
+                    Save as Draft
+                  </Button>
+                  <Button
+                    type="button"
                     variant="default"
                     size="sm"
                     className="bg-blue-500 text-white hover:bg-blue-500/90"
                     disabled={!createTitle.trim() || !createContent.trim() || createBlogMutation.isPending}
-                    onClick={(event) => {
-                      // Wrap in a fake form submission for reuse of handler.
-                      handleCreateBlog(event as unknown as React.SyntheticEvent<HTMLFormElement>);
-                    }}
+                    onClick={() => void handleCreateBlog("published")}
                   >
-                    Create blog
+                    Publish
                   </Button>
                 </CardFooter>
               </Card>
@@ -764,7 +782,14 @@ export default function HomePage() {
                 <Card key={blog.id} className="border-border/70">
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <CardTitle>{blog.title}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle>{blog.title}</CardTitle>
+                        {(isAdmin || (currentUserId && blog.authorId === currentUserId)) && blog.status !== "published" && (
+                          <Badge variant={blog.status === "draft" ? "secondary" : "outline"} className="text-xs capitalize">
+                            {blog.status}
+                          </Badge>
+                        )}
+                      </div>
                       <CardDescription>
                         <span className="text-xs text-muted-foreground">
                           Created: {createdLabel}
@@ -1135,6 +1160,33 @@ export default function HomePage() {
               >
                 Cancel
               </Button>
+              {editingBlog && editingBlog.status !== "published" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-green-500 text-green-600 hover:bg-green-50"
+                  disabled={updating}
+                  onClick={() =>
+                    setEditingBlog((c) => (c ? { ...c, status: "published" } : c))
+                  }
+                >
+                  Publish
+                </Button>
+              )}
+              {editingBlog && editingBlog.status === "published" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={updating}
+                  onClick={() =>
+                    setEditingBlog((c) => (c ? { ...c, status: "draft" } : c))
+                  }
+                >
+                  Back to Draft
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="default"
