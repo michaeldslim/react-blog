@@ -32,7 +32,7 @@ const typeDefs = /* GraphQL */ `
   }
 
   type Query {
-    blogs(page: Int!, pageSize: Int!): BlogsPage!
+    blogs(page: Int!, pageSize: Int!, query: String): BlogsPage!
     blog(id: ID!): Blog
     blogDates: [BlogDateCount!]!
   }
@@ -69,10 +69,11 @@ interface IGraphqlContext {
 
 const resolvers = {
   Query: {
-    blogs: (_parent: unknown, args: { page: number; pageSize: number }, context: IGraphqlContext) =>
+    blogs: (_parent: unknown, args: { page: number; pageSize: number; query?: string | null }, context: IGraphqlContext) =>
       blogsRepository.getBlogsPaginated(args.page, args.pageSize, {
         viewerUserId: context.token?.sub ?? null,
         isAdmin: context.token?.isAdmin ?? false,
+        query: args.query ?? undefined,
       }),
     blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
     blogDates: () => blogsRepository.getBlogDates(),

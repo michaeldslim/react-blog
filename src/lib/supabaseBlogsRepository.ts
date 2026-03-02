@@ -75,6 +75,10 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       }
     }
 
+    if (options?.query?.trim()) {
+      query = query.or(`title.ilike.%${options.query.trim()}%,content.ilike.%${options.query.trim()}%`);
+    }
+
     const { data, error } = await query;
     if (error) throw new Error(`Supabase getBlogs error: ${error.message}`);
     return ((data ?? []) as BlogsRow[]).map(mapRowToBlog);
@@ -100,6 +104,10 @@ export const supabaseBlogsRepository: IBlogsRepository = {
       } else {
         query = query.eq("status", "published");
       }
+    }
+
+    if (options?.query?.trim()) {
+      query = query.or(`title.ilike.%${options.query.trim()}%,content.ilike.%${options.query.trim()}%`);
     }
 
     const { data, error, count } = await query;

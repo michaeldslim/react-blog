@@ -3,6 +3,7 @@ export type BlogStatus = "draft" | "published" | "scheduled";
 export interface IBlogViewerOptions {
   viewerUserId?: string | null;
   isAdmin?: boolean;
+  query?: string;
 }
 
 export interface IBlog {

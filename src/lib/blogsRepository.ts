@@ -35,6 +35,12 @@ let blogs: IBlog[] = [
   },
 ];
 
+function matchesQuery(blog: IBlog, query?: string): boolean {
+  if (!query?.trim()) return true;
+  const q = query.trim().toLowerCase();
+  return blog.title.toLowerCase().includes(q) || blog.content.toLowerCase().includes(q);
+}
+
 function isVisible(blog: IBlog, options?: IBlogViewerOptions): boolean {
   if (options?.isAdmin) return true;
   if (blog.status === "published") return true;
@@ -49,7 +55,7 @@ function generateId(): string {
 export const blogsRepository: IBlogsRepository = {
   async getBlogs(options?: IBlogViewerOptions): Promise<IBlog[]> {
     return blogs
-      .filter((b) => isVisible(b, options))
+      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query))
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   },
 
@@ -58,7 +64,7 @@ export const blogsRepository: IBlogsRepository = {
     const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : 1;
 
     const sorted = blogs
-      .filter((b) => isVisible(b, options))
+      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query))
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     const totalCount = sorted.length;
     const start = (safePage - 1) * safePageSize;

@@ -36,8 +36,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BlogCalendar } from "@/components/blog-calendar";
 
 const GET_BLOGS = `
-  query GetBlogs($page: Int!, $pageSize: Int!) {
-    blogs(page: $page, pageSize: $pageSize) {
+  query GetBlogs($page: Int!, $pageSize: Int!, $query: String) {
+    blogs(page: $page, pageSize: $pageSize, query: $query) {
       items {
         id
         title
@@ -137,6 +137,24 @@ interface IEditableBlogState {
   status: BlogStatus;
 }
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+  const parts = text.split(new RegExp(`(${escapeRegExp(query.trim())})`, "gi"));
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.trim().toLowerCase() ? (
+      <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5">
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
+}
+
 interface IGraphqlError {
   message: string;
 }
@@ -214,8 +232,27 @@ export default function HomePage() {
       : DEFAULT_POSTS_PER_PAGE;
 
   const selectedDate = searchParams.get("date");
+  const searchQuery = searchParams.get("q") ?? "";
 
+  const [searchInput, setSearchInput] = useState(searchQuery);
   const [currentPage, setCurrentPage] = useState(initialPage);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      const params = new URLSearchParams(searchParams.toString());
+      if (trimmed) {
+        params.set("q", trimmed);
+        params.set("page", "1");
+        setCurrentPage(1);
+      } else {
+        params.delete("q");
+      }
+      router.push(`${pathname}?${params.toString()}`);
+    }, 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   const updatePage = useCallback(
     (nextPage: number) => {
@@ -244,14 +281,15 @@ export default function HomePage() {
   );
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["blogs", currentPage, POSTS_PER_PAGE],
+    queryKey: ["blogs", currentPage, POSTS_PER_PAGE, searchQuery],
     queryFn: () =>
       graphqlRequest<
         { blogs: { items: IBlog[]; totalCount: number }; blogDates: { date: string; count: number }[] },
-        { page: number; pageSize: number }
+        { page: number; pageSize: number; query?: string | null }
       >(GET_BLOGS, {
         page: currentPage,
         pageSize: POSTS_PER_PAGE,
+        query: searchQuery || null,
       }),
   });
 
@@ -783,7 +821,7 @@ export default function HomePage() {
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <CardTitle>{blog.title}</CardTitle>
+                        <CardTitle>{highlightText(blog.title, searchQuery)}</CardTitle>
                         {(isAdmin || (currentUserId && blog.authorId === currentUserId)) && blog.status !== "published" && (
                           <Badge variant={blog.status === "draft" ? "secondary" : "outline"} className="text-xs capitalize">
                             {blog.status}
@@ -819,7 +857,13 @@ export default function HomePage() {
                         />
                       </button>
                     )}
-                    <MarkdownContent content={blog.content} />
+                    {searchQuery ? (
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-6">
+                        {highlightText(blog.content, searchQuery)}
+                      </p>
+                    ) : (
+                      <MarkdownContent content={blog.content} />
+                    )}
                   </CardContent>
                   <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                     <div className="flex items-center gap-2">
@@ -987,6 +1031,37 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <BlogCalendar postDates={blogDates} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Search</CardTitle>
+                <CardDescription>Find posts by title or content</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative">
+                  <Input
+                    type="search"
+                    placeholder="Type to search..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                  />
+                  {searchInput && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                      onClick={() => setSearchInput("")}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {searchQuery && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {blogs.length} result{blogs.length !== 1 ? "s" : ""} for &ldquo;{searchQuery}&rdquo;
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
