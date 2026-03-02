@@ -45,6 +45,8 @@ const GET_BLOGS = `
         likesCount
         dislikesCount
         imageUrl
+        authorId
+        authorName
         createdAt
         updatedAt
       }
@@ -171,6 +173,8 @@ export default function HomePage() {
 
   const { data: session } = useSession();
   const isAuthenticated = Boolean(session);
+  const isAdmin = Boolean(session?.user?.isAdmin);
+  const currentUserId = session?.user?.id ?? null;
 
   const {
     theme,
@@ -428,7 +432,12 @@ export default function HomePage() {
         imageUrl = await uploadBlogImage(createImageFile);
       } catch (uploadError) {
         console.error(uploadError);
-        toast.error("Failed to upload image.");
+        toast.error("Image upload failed", {
+          description:
+            uploadError instanceof Error
+              ? uploadError.message
+              : "Please try a smaller or different image.",
+        });
         return;
       }
     }
@@ -545,7 +554,19 @@ export default function HomePage() {
       let nextImageUrl: string | null | undefined;
 
       if (editImageFile) {
-        nextImageUrl = await uploadBlogImage(editImageFile);
+        try {
+          nextImageUrl = await uploadBlogImage(editImageFile);
+        } catch (uploadError) {
+          console.error(uploadError);
+          toast.error("Image upload failed", {
+            description:
+              uploadError instanceof Error
+                ? uploadError.message
+                : "Please try a smaller or different image.",
+          });
+          setUpdating(false);
+          return;
+        }
       } else if (editingBlog.imageUrl === null) {
         // Explicit removal of existing image
         nextImageUrl = null;
@@ -660,6 +681,9 @@ export default function HomePage() {
                       {createImageFile ? createImageFile.name : "No file chosen"}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Images are auto-resized to 800px and compressed before upload.
+                  </p>
                   {createImagePreviewUrl && (
                     <div className="mt-1">
                       <button
@@ -833,7 +857,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {isAuthenticated && (
+                      {(isAdmin || (currentUserId && blog.authorId === currentUserId)) && (
                         <Button
                           variant="outline"
                           size="xs"
@@ -843,7 +867,7 @@ export default function HomePage() {
                           Edit
                         </Button>
                       )}
-                      {isAuthenticated && (
+                      {(isAdmin || (currentUserId && blog.authorId === currentUserId)) && (
                         <Button
                           variant="destructive"
                           size="xs"
@@ -1096,8 +1120,11 @@ export default function HomePage() {
                       {editImageFile ? editImageFile.name : "choose file or replace file"}
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Images are auto-resized to 800px and compressed before upload.
+                  </p>
+                  </div>
                 </div>
-              </div>
             )}
             <DialogFooter className="pt-4">
               <Button

@@ -6,6 +6,8 @@ export interface IBlog {
   likesCount: number;
   dislikesCount: number;
   imageUrl: string | null;
+  authorId: string | null;
+  authorName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,7 +22,7 @@ export interface IBlogsRepository {
   getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage>;
   getBlogById(id: string): Promise<IBlog | undefined>;
   getBlogDates(): Promise<{ date: string; count: number }[]>;
-  createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog>;
+  createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null }): Promise<IBlog>;
   updateBlog(
     id: string,
     input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null },
