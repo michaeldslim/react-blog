@@ -1,3 +1,11 @@
+export type BlogStatus = "draft" | "published" | "scheduled";
+
+export interface IBlogViewerOptions {
+  viewerUserId?: string | null;
+  isAdmin?: boolean;
+  query?: string;
+}
+
 export interface IBlog {
   id: string;
   title: string;
@@ -8,6 +16,8 @@ export interface IBlog {
   imageUrl: string | null;
   authorId: string | null;
   authorName: string | null;
+  status: BlogStatus;
+  publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,14 +28,14 @@ export interface IBlogsPage {
 }
 
 export interface IBlogsRepository {
-  getBlogs(): Promise<IBlog[]>;
-  getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage>;
+  getBlogs(options?: IBlogViewerOptions): Promise<IBlog[]>;
+  getBlogsPaginated(page: number, pageSize: number, options?: IBlogViewerOptions): Promise<IBlogsPage>;
   getBlogById(id: string): Promise<IBlog | undefined>;
   getBlogDates(): Promise<{ date: string; count: number }[]>;
-  createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null }): Promise<IBlog>;
+  createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: BlogStatus }): Promise<IBlog>;
   updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: BlogStatus; publishedAt?: string | null },
   ): Promise<IBlog>;
   deleteBlog(id: string): Promise<boolean>;
   toggleBlogGood(id: string): Promise<IBlog>;

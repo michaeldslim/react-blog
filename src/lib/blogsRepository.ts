@@ -1,4 +1,6 @@
-import type { IBlog, IBlogsPage, IBlogsRepository } from "@/types";
+import type { IBlog, IBlogViewerOptions, IBlogsPage, IBlogsRepository } from "@/types";
+
+const SEED_DATE = new Date().toISOString();
 
 let blogs: IBlog[] = [
   {
@@ -11,8 +13,10 @@ let blogs: IBlog[] = [
     imageUrl: null,
     authorId: null,
     authorName: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    status: "published",
+    publishedAt: SEED_DATE,
+    createdAt: SEED_DATE,
+    updatedAt: SEED_DATE,
   },
   {
     id: "2",
@@ -24,25 +28,44 @@ let blogs: IBlog[] = [
     imageUrl: null,
     authorId: null,
     authorName: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    status: "published",
+    publishedAt: SEED_DATE,
+    createdAt: SEED_DATE,
+    updatedAt: SEED_DATE,
   },
 ];
+
+function matchesQuery(blog: IBlog, query?: string): boolean {
+  if (!query?.trim()) return true;
+  const q = query.trim().toLowerCase();
+  return blog.title.toLowerCase().includes(q) || blog.content.toLowerCase().includes(q);
+}
+
+function isVisible(blog: IBlog, options?: IBlogViewerOptions): boolean {
+  if (options?.isAdmin) return true;
+  if (blog.status === "published") return true;
+  if (options?.viewerUserId && blog.authorId === options.viewerUserId) return true;
+  return false;
+}
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 11);
 }
 
 export const blogsRepository: IBlogsRepository = {
-  async getBlogs(): Promise<IBlog[]> {
-    return blogs.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  async getBlogs(options?: IBlogViewerOptions): Promise<IBlog[]> {
+    return blogs
+      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   },
 
-  async getBlogsPaginated(page: number, pageSize: number): Promise<IBlogsPage> {
+  async getBlogsPaginated(page: number, pageSize: number, options?: IBlogViewerOptions): Promise<IBlogsPage> {
     const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
     const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : 1;
 
-    const sorted = blogs.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const sorted = blogs
+      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     const totalCount = sorted.length;
     const start = (safePage - 1) * safePageSize;
     const end = start + safePageSize;
@@ -61,8 +84,7 @@ export const blogsRepository: IBlogsRepository = {
   async getBlogDates(): Promise<{ date: string; count: number }[]> {
     const dateCounts = new Map<string, number>();
     
-    blogs.forEach((blog) => {
-      // Extract just the YYYY-MM-DD part from the ISO string
+    blogs.filter((b) => b.status === "published").forEach((blog) => {
       const date = blog.createdAt.split('T')[0];
       dateCounts.set(date, (dateCounts.get(date) || 0) + 1);
     });
@@ -73,8 +95,9 @@ export const blogsRepository: IBlogsRepository = {
     }));
   },
 
-  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: import("@/types").BlogStatus }): Promise<IBlog> {
     const now = new Date().toISOString();
+    const status = input.status ?? "published";
     const newBlog: IBlog = {
       id: generateId(),
       title: input.title,
@@ -85,6 +108,8 @@ export const blogsRepository: IBlogsRepository = {
       imageUrl: input.imageUrl ?? null,
       authorId: input.authorId ?? null,
       authorName: input.authorName ?? null,
+      status,
+      publishedAt: status === "published" ? now : null,
       createdAt: now,
       updatedAt: now,
     };
@@ -95,17 +120,31 @@ export const blogsRepository: IBlogsRepository = {
 
   async updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: import("@/types").BlogStatus; publishedAt?: string | null },
   ): Promise<IBlog> {
     const existing = blogs.find((blog) => blog.id === id);
     if (!existing) {
       throw new Error("Blog not found");
     }
 
+    const now = new Date().toISOString();
+    const newStatus = input.status ?? existing.status;
+    const publishedAt =
+      input.publishedAt !== undefined
+        ? input.publishedAt
+        : newStatus === "published" && !existing.publishedAt
+          ? now
+          : existing.publishedAt;
+
     const updated: IBlog = {
       ...existing,
-      ...input,
-      updatedAt: new Date().toISOString(),
+      ...(input.title !== undefined && { title: input.title }),
+      ...(input.content !== undefined && { content: input.content }),
+      ...(input.isGood !== undefined && { isGood: input.isGood }),
+      ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
+      status: newStatus,
+      publishedAt,
+      updatedAt: now,
     };
 
     blogs = blogs.map((blog) => (blog.id === id ? updated : blog));
