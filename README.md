@@ -16,7 +16,7 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
@@ -42,7 +42,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - **프레임워크**: Next.js (App Router) + React + TypeScript
 - **스타일/UI**: Tailwind CSS + ShadCN UI
 - **백엔드**: GraphQL Yoga (`/api/graphql`) + TypeScript
-- **데이터 레이어**: In-memory `blogsRepository` (나중에 Supabase로 교체 예정)
+- **데이터 레이어**: `activeBlogsRepository` 로 In-memory / Supabase 구현체 스위칭
 
 ### 1. 이 블로그를 처음부터 다시 만들 때 필요한 명령어
 
@@ -97,31 +97,57 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 - `src/types/index.ts`
   - `IBlog` 인터페이스 정의
-  - 필드: `id`, `title`, `content`, `isGood`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
+  - 필드: `id`, `title`, `content`, `isGood`, `likesCount`, `dislikesCount`, `imageUrl`, `createdAt`, `updatedAt`
 
 - `src/lib/blogsRepository.ts`
-  - In-memory 배열 `blogs: IBlog[]` 를 사용하는 저장소 레이어 (`blogsRepository` export)
+  - In-memory 배열 `blogs: IBlog[]` 를 사용하는 `IBlogsRepository` 구현체 (`blogsRepository` export)
   - 메서드:
     - `getBlogs()`
+    - `getBlogsPaginated(page, pageSize)`
     - `getBlogById(id)`
-    - `createBlog({ title, content })`
-    - `updateBlog(id, { title?, content?, isGood? })`
+    - `getBlogDates()`
+    - `createBlog({ title, content, imageUrl? })`
+    - `updateBlog(id, { title?, content?, isGood?, imageUrl? })`
     - `deleteBlog(id)`
     - `toggleBlogGood(id)`
+    - `likeBlog(id)`
+    - `dislikeBlog(id)`
 
 - `src/app/api/graphql/route.ts`
   - GraphQL Yoga 기반 API 라우트(`/api/graphql`)
   - `typeDefs` 에서 GraphQL 스키마 정의
     - `type Blog`
-    - `type Query { blogs, blog }`
-    - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood }`
-  - `resolvers` 에서 실제 구현을 `blogsRepository` 에 위임
+    - `type BlogsPage`, `type BlogDateCount`
+    - `type Query { blogs(page, pageSize), blog(id), blogDates }`
+    - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood, likeBlog, dislikeBlog }`
+  - `resolvers` 에서 실제 구현을 `activeBlogsRepository` 가 선택한 `blogsRepository` 에 위임
   - `createYoga` + `createSchema` 로 스키마와 리졸버를 묶어 Next.js Route Handler 로 노출
+
+- `src/lib/activeBlogsRepository.ts`
+  - `BLOGS_REPOSITORY` 환경 변수에 따라 `blogsRepository` 구현체를 선택
+    - 기본값: `memory`
+    - `supabase` 설정 시: `supabaseBlogsRepository` 사용
+
+- `src/lib/supabaseBlogsRepository.ts`
+  - Supabase(Postgres + Storage) 기반 `IBlogsRepository` 구현체
+  - `updateBlog` / `deleteBlog` 에서 이미지 변경/삭제 시 Storage 객체 정리
+
+- `src/app/api/auth/[...nextauth]/route.ts`
+  - NextAuth API 라우트
+  - Google 로그인 제공
 
 - `src/components/providers.tsx`
   - `Providers` 컴포넌트 정의
   - 전역 Toast(Sonner + ShadCN)를 위해 `<Toaster />` 를 렌더링
   - TanStack Query의 `QueryClientProvider` 로 전체 앱을 감싸 전역 쿼리 클라이언트 제공
+  - NextAuth의 `SessionProvider` 로 로그인 세션 컨텍스트 제공
+
+- `src/lib/browserSupabaseClient.ts`
+  - 브라우저에서 Supabase Storage 업로드를 위한 클라이언트
+  - `uploadBlogImage(file)` 로 public URL 생성
+
+- `src/components/blog-calendar.tsx`
+  - 글 작성 날짜 기반 캘린더 필터 UI
 
 - `src/app/layout.tsx`
   - Next.js 루트 레이아웃
@@ -150,17 +176,17 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 2. **GraphQL 레이어 (GraphQL Yoga)**
    - `/api/graphql` 라우트 (`src/app/api/graphql/route.ts`)
    - GraphQL 스키마(`typeDefs`)와 리졸버(`resolvers`) 정의
-   - 모든 리졸버는 `blogsRepository` 를 호출
+   - 리졸버는 `activeBlogsRepository` 가 선택한 `blogsRepository` 를 호출
+   - `createBlog`, `updateBlog`, `deleteBlog` 는 로그인(NextAuth JWT 토큰) 필요
 
-3. **데이터 레이어 (현재는 In-memory)**
-   - `src/lib/blogsRepository.ts`
-   - 서버 메모리에만 존재하는 `blogs` 배열 (타입은 `IBlog[]`, 레포지토리 export 는 `blogsRepository`)
-   - 서버 재시작 시 데이터 초기화
-   - 나중에 Supabase(Postgres)로 교체하기 쉽게 메서드 단위로 캡슐화
+3. **데이터 레이어 (`IBlogsRepository`)**
+   - `src/lib/activeBlogsRepository.ts` 가 백엔드를 선택
+     - `memory`: `src/lib/blogsRepository.ts` (서버 재시작 시 데이터 초기화)
+     - `supabase`: `src/lib/supabaseBlogsRepository.ts`
 
 ---
 
-## Supabase 버전 `blogsRepository` 설계 (계획)
+## Supabase 버전 `blogsRepository`
 
 ### 1. Supabase 프로젝트 및 테이블 설계
 
@@ -169,9 +195,16 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
    - `id`: `uuid` (primary key) 또는 `text`
    - `title`: `text`
    - `content`: `text`
-   - `is_good`: `boolean` (기본값 `true`)
+   - `is_good`: `boolean` (기본값 `false`)
+   - `likes_count`: `int` (기본값 `0`)
+   - `dislikes_count`: `int` (기본값 `0`)
+   - `image_url`: `text` (nullable)
    - `created_at`: `timestamptz` (기본값 `now()`)
    - `updated_at`: `timestamptz` (기본값 `now()`)
+
+3. (선택) 테마 저장을 원하면 `theme_preferences` 테이블 생성 (예시):
+   - `anon_id`: `uuid` 또는 `text` (primary key)
+   - `theme`: `text`
 
 3. TypeScript `IBlog` 인터페이스와 매핑할 때, 컬럼명을 스네이크 케이스→카멜 케이스로 변환할 수 있도록 주의
 
@@ -182,12 +215,22 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
+BLOGS_REPOSITORY=memory # 또는 supabase
+NEXTAUTH_SECRET=...
+NEXT_PUBLIC_BLOGS_PAGE_SIZE=10
+NEXT_PUBLIC_ENABLE_THEME_SWITCHER=true
+NEXT_PUBLIC_THEME_SOURCE=local # 또는 public
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
 
-- `ANON_KEY` 는 클라이언트/서버에서 모두 사용 가능 (퍼블릭)
+- `NEXT_PUBLIC_SUPABASE_*` 는 브라우저에서 이미지 업로드(스토리지)에 사용
+- `SUPABASE_*` 는 서버에서 DB/스토리지 접근에 사용
 - `SERVICE_ROLE_KEY` 는 **서버 전용**으로, 보안상 클라이언트에 노출되면 안 됨
-  - `blogsRepository` 는 서버에서만 실행되므로, 필요하다면 SERVICE ROLE 키를 사용할 수 있음.
+- `BLOGS_REPOSITORY` 로 메모리/수파베이스 구현체를 선택
+- `NEXT_PUBLIC_BLOGS_PAGE_SIZE` 는 메인 페이지의 기본 페이지 사이즈로 사용(필수)
 
 ### 3. Supabase 클라이언트 설치 및 초기화
 
@@ -195,22 +238,20 @@ SUPABASE_SERVICE_ROLE_KEY=...
 npm install @supabase/supabase-js
 ```
 
-예: `src/lib/supabaseClient.ts` (서버용 클라이언트) 설계 예시:
+예: `src/lib/supabaseClient.ts` (서버용 클라이언트):
 
 ```ts
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-export const supabaseServerClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: { persistSession: false },
-});
+export const supabaseServerClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 ```
 
 ### 4. `blogsRepository`를 Supabase 기반으로 교체하는 전략
 
-현재 `src/lib/blogsRepository.ts` 는 In-memory 구현. 구조는 그대로 유지하되, 내부 구현을 Supabase 쿼리로 바꿈.
+현재는 `src/lib/activeBlogsRepository.ts` 를 통해 메모리/수파베이스를 런타임에 선택.
 
 #### 4-1. `getBlogs()`
 
@@ -261,4 +302,4 @@ Supabase 버전 (개념):
 - GraphQL 리졸버 함수 시그니처
 - 프론트엔드 (`src/app/page.tsx`)의 GraphQL 쿼리/뮤테이션 및 UI
 
-즉, `postsRepository` 내부 구현만 Supabase로 바꾸면, UI와 GraphQL 요청 코드는 그대로 작동.
+즉, `IBlogsRepository` 구현체만 바뀌며, UI와 GraphQL 요청 코드는 그대로 작동.
