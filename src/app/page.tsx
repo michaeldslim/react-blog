@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -889,7 +890,14 @@ export default function HomePage() {
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <CardTitle>{highlightText(blog.title, searchQuery)}</CardTitle>
+                        <CardTitle>
+                          <Link
+                            href={`/blog/${blog.id}`}
+                            className="hover:underline underline-offset-2"
+                          >
+                            {highlightText(blog.title, searchQuery)}
+                          </Link>
+                        </CardTitle>
                         {(isAdmin || (currentUserId && blog.authorId === currentUserId)) && blog.status !== "published" && (
                           <Badge variant={blog.status === "draft" ? "secondary" : "outline"} className="text-xs capitalize">
                             {blog.status}
