@@ -17,6 +17,7 @@ const typeDefs = /* GraphQL */ `
     authorName: String
     status: String!
     publishedAt: String
+    tags: [String!]!
     createdAt: String!
     updatedAt: String!
   }
@@ -32,7 +33,7 @@ const typeDefs = /* GraphQL */ `
   }
 
   type Query {
-    blogs(page: Int!, pageSize: Int!, query: String): BlogsPage!
+    blogs(page: Int!, pageSize: Int!, query: String, tag: String): BlogsPage!
     blog(id: ID!): Blog
     blogDates: [BlogDateCount!]!
   }
@@ -42,6 +43,7 @@ const typeDefs = /* GraphQL */ `
     content: String!
     imageUrl: String
     status: String
+    tags: [String]
   }
 
   input UpdateBlogInput {
@@ -50,6 +52,7 @@ const typeDefs = /* GraphQL */ `
     isGood: Boolean
     imageUrl: String
     status: String
+    tags: [String]
   }
 
   type Mutation {
@@ -69,11 +72,12 @@ interface IGraphqlContext {
 
 const resolvers = {
   Query: {
-    blogs: (_parent: unknown, args: { page: number; pageSize: number; query?: string | null }, context: IGraphqlContext) =>
+    blogs: (_parent: unknown, args: { page: number; pageSize: number; query?: string | null; tag?: string | null }, context: IGraphqlContext) =>
       blogsRepository.getBlogsPaginated(args.page, args.pageSize, {
         viewerUserId: context.token?.sub ?? null,
         isAdmin: context.token?.isAdmin ?? false,
         query: args.query ?? undefined,
+        tag: args.tag ?? undefined,
       }),
     blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
     blogDates: () => blogsRepository.getBlogDates(),
@@ -81,7 +85,7 @@ const resolvers = {
   Mutation: {
     createBlog: (
       _parent: unknown,
-      args: { input: { title: string; content: string; imageUrl?: string | null; status?: string | null } },
+      args: { input: { title: string; content: string; imageUrl?: string | null; status?: string | null; tags?: string[] | null } },
       context: IGraphqlContext,
     ) => {
       if (!context.token) {
@@ -92,13 +96,14 @@ const resolvers = {
         authorId: context.token.sub ?? null,
         authorName: (context.token.name as string | undefined) ?? null,
         status: (args.input.status as import("@/types").BlogStatus | undefined) ?? "published",
+        tags: (args.input.tags?.filter(Boolean) as string[]) ?? [],
       });
     },
     updateBlog: async (
       _parent: unknown,
       args: {
         id: string;
-        input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: string | null };
+        input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: string | null; tags?: string[] | null };
       },
       context: IGraphqlContext,
     ) => {
@@ -113,6 +118,7 @@ const resolvers = {
       return blogsRepository.updateBlog(args.id, {
         ...args.input,
         status: (args.input.status as import("@/types").BlogStatus | undefined),
+        tags: args.input.tags ? (args.input.tags.filter(Boolean) as string[]) : undefined,
       });
     },
     deleteBlog: async (_parent: unknown, args: { id: string }, context: IGraphqlContext) => {

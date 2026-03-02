@@ -36,8 +36,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BlogCalendar } from "@/components/blog-calendar";
 
 const GET_BLOGS = `
-  query GetBlogs($page: Int!, $pageSize: Int!, $query: String) {
-    blogs(page: $page, pageSize: $pageSize, query: $query) {
+  query GetBlogs($page: Int!, $pageSize: Int!, $query: String, $tag: String) {
+    blogs(page: $page, pageSize: $pageSize, query: $query, tag: $tag) {
       items {
         id
         title
@@ -50,6 +50,7 @@ const GET_BLOGS = `
         authorName
         status
         publishedAt
+        tags
         createdAt
         updatedAt
       }
@@ -67,6 +68,7 @@ const CREATE_BLOG = `
     createBlog(input: $input) {
       id
       status
+      tags
     }
   }
 `;
@@ -82,6 +84,7 @@ const UPDATE_BLOG = `
       dislikesCount
       status
       publishedAt
+      tags
       updatedAt
     }
   }
@@ -135,6 +138,7 @@ interface IEditableBlogState {
   content: string;
   imageUrl: string | null;
   status: BlogStatus;
+  tags: string[];
 }
 
 function escapeRegExp(str: string): string {
@@ -233,8 +237,12 @@ export default function HomePage() {
 
   const selectedDate = searchParams.get("date");
   const searchQuery = searchParams.get("q") ?? "";
+  const tagFilter = searchParams.get("tag") ?? "";
 
   const [searchInput, setSearchInput] = useState(searchQuery);
+  const [createTags, setCreateTags] = useState<string[]>([]);
+  const [createTagInput, setCreateTagInput] = useState("");
+  const [editTagInput, setEditTagInput] = useState("");
   const [currentPage, setCurrentPage] = useState(initialPage);
 
   useEffect(() => {
@@ -281,15 +289,16 @@ export default function HomePage() {
   );
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["blogs", currentPage, POSTS_PER_PAGE, searchQuery],
+    queryKey: ["blogs", currentPage, POSTS_PER_PAGE, searchQuery, tagFilter],
     queryFn: () =>
       graphqlRequest<
         { blogs: { items: IBlog[]; totalCount: number }; blogDates: { date: string; count: number }[] },
-        { page: number; pageSize: number; query?: string | null }
+        { page: number; pageSize: number; query?: string | null; tag?: string | null }
       >(GET_BLOGS, {
         page: currentPage,
         pageSize: POSTS_PER_PAGE,
         query: searchQuery || null,
+        tag: tagFilter || null,
       }),
   });
 
@@ -326,10 +335,10 @@ export default function HomePage() {
   const editFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const createBlogMutation = useMutation({
-    mutationFn: (variables: { title: string; content: string; imageUrl?: string | null; status: BlogStatus }) =>
+    mutationFn: (variables: { title: string; content: string; imageUrl?: string | null; status: BlogStatus; tags: string[] }) =>
       graphqlRequest<
-        { createBlog: { id: string; status: string } },
-        { input: { title: string; content: string; imageUrl?: string | null; status: BlogStatus } }
+        { createBlog: { id: string; status: string; tags: string[] } },
+        { input: { title: string; content: string; imageUrl?: string | null; status: BlogStatus; tags: string[] } }
       >(CREATE_BLOG, {
         input: variables,
       }),
@@ -339,10 +348,10 @@ export default function HomePage() {
   });
 
   const updateBlogMutation = useMutation({
-    mutationFn: (variables: { id: string; title: string; content: string; imageUrl?: string | null; status?: BlogStatus }) =>
+    mutationFn: (variables: { id: string; title: string; content: string; imageUrl?: string | null; status?: BlogStatus; tags?: string[] }) =>
       graphqlRequest<
         { updateBlog: IBlog },
-        { id: string; input: { title: string; content: string; imageUrl?: string | null; status?: BlogStatus } }
+        { id: string; input: { title: string; content: string; imageUrl?: string | null; status?: BlogStatus; tags?: string[] } }
       >(UPDATE_BLOG, {
         id: variables.id,
         input: {
@@ -350,6 +359,7 @@ export default function HomePage() {
           content: variables.content,
           ...(variables.imageUrl !== undefined ? { imageUrl: variables.imageUrl } : {}),
           ...(variables.status !== undefined ? { status: variables.status } : {}),
+          ...(variables.tags !== undefined ? { tags: variables.tags } : {}),
         },
       }),
     onSuccess: () => {
@@ -492,12 +502,15 @@ export default function HomePage() {
         content: createContent.trim(),
         imageUrl,
         status,
+        tags: createTags,
       });
 
       setCreateTitle("");
       setCreateContent("");
       setCreateImageFile(null);
       setCreateImagePreviewUrl(null);
+      setCreateTags([]);
+      setCreateTagInput("");
       if (createFileInputRef.current) {
         createFileInputRef.current.value = "";
       }
@@ -552,7 +565,9 @@ export default function HomePage() {
       content: blog.content,
       imageUrl: blog.imageUrl ?? null,
       status: blog.status,
+      tags: blog.tags ?? [],
     };
+    setEditTagInput("");
     setEditingBlog(nextState);
     setEditingInitialBlog(nextState);
     setEditImageFile(null);
@@ -575,6 +590,7 @@ export default function HomePage() {
       editingBlog.content !== editingInitialBlog.content ||
       editingBlog.imageUrl !== editingInitialBlog.imageUrl ||
       editingBlog.status !== editingInitialBlog.status ||
+      JSON.stringify(editingBlog.tags) !== JSON.stringify(editingInitialBlog.tags) ||
       editImageFile !== null;
 
     if (hasChanges) {
@@ -628,6 +644,7 @@ export default function HomePage() {
         content: editingBlog.content.trim(),
         imageUrl: nextImageUrl,
         status: editingBlog.status,
+        tags: editingBlog.tags,
       });
 
       toast.success(
@@ -750,6 +767,38 @@ export default function HomePage() {
                       </button>
                     </div>
                   )}
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap gap-1">
+                      {createTags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="gap-1 pr-1 text-xs">
+                          {tag}
+                          <button
+                            type="button"
+                            className="ml-0.5 rounded hover:bg-muted"
+                            onClick={() => setCreateTags((t) => t.filter((x) => x !== tag))}
+                            aria-label={`Remove tag ${tag}`}
+                          >
+                            ✕
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                    <Input
+                      placeholder="Add tags (Enter or comma)"
+                      value={createTagInput}
+                      onChange={(e) => setCreateTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          const val = createTagInput.trim().toLowerCase().replace(/,/g, "").replace(/^#/, "");
+                          if (val && !createTags.includes(val)) {
+                            setCreateTags((t) => [...t, val]);
+                          }
+                          setCreateTagInput("");
+                        }
+                      }}
+                    />
+                  </div>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2">
                   <Button
@@ -811,6 +860,25 @@ export default function HomePage() {
               </div>
             )}
 
+            {tagFilter && (
+              <div className="flex items-center justify-between bg-muted/50 p-3 rounded-md border">
+                <p className="text-sm font-medium">
+                  Filtered by tag: <Badge variant="secondary" className="ml-1">{tagFilter}</Badge>
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.delete("tag");
+                    router.push(`${pathname}?${params.toString()}`);
+                  }}
+                >
+                  Clear filter
+                </Button>
+              </div>
+            )}
+
           <div className="space-y-4">
             {blogs.map((blog: IBlog) => {
               const createdLabel = new Date(blog.createdAt).toLocaleString();
@@ -863,6 +931,29 @@ export default function HomePage() {
                       </p>
                     ) : (
                       <MarkdownContent content={blog.content} />
+                    )}
+                    {blog.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {blog.tags.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => {
+                              const params = new URLSearchParams(searchParams.toString());
+                              params.set("tag", tag);
+                              params.set("page", "1");
+                              router.push(`${pathname}?${params.toString()}`);
+                            }}
+                          >
+                            <Badge
+                              variant={tagFilter === tag ? "default" : "outline"}
+                              className="cursor-pointer text-xs hover:bg-accent"
+                            >
+                              #{tag}
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </CardContent>
                   <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
@@ -1153,6 +1244,42 @@ export default function HomePage() {
                     )
                   }
                 />
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap gap-1">
+                    {editingBlog.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1 pr-1 text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          className="ml-0.5 rounded hover:bg-muted"
+                          onClick={() =>
+                            setEditingBlog((c) =>
+                              c ? { ...c, tags: c.tags.filter((x) => x !== tag) } : c,
+                            )
+                          }
+                          aria-label={`Remove tag ${tag}`}
+                        >
+                          ✕
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <Input
+                    placeholder="Add tags (Enter or comma)"
+                    value={editTagInput}
+                    onChange={(e) => setEditTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const val = editTagInput.trim().toLowerCase().replace(/,/g, "").replace(/^#/, "");
+                        if (val && editingBlog && !editingBlog.tags.includes(val)) {
+                          setEditingBlog((c) => (c ? { ...c, tags: [...c.tags, val] } : c));
+                        }
+                        setEditTagInput("");
+                      }
+                    }}
+                  />
+                </div>
                 <div className="space-y-2">
                   {(editingBlog.imageUrl || editImageFile) && (
                     <div className="flex items-center gap-3">

@@ -2,7 +2,7 @@ import type { IBlog, IBlogViewerOptions, IBlogsPage, IBlogsRepository } from "@/
 import { getSupabaseClient } from "./supabaseClient";
 
 const BLOG_SELECT =
-  "id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, status, published_at, created_at, updated_at";
+  "id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, status, published_at, tags, created_at, updated_at";
 
 type BlogsRow = {
   id: string;
@@ -16,6 +16,7 @@ type BlogsRow = {
   author_name: string | null;
   status: string | null;
   published_at: string | null;
+  tags: string[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -56,6 +57,7 @@ function mapRowToBlog(row: BlogsRow): IBlog {
     authorName: row.author_name ?? null,
     status: (row.status as IBlog["status"]) ?? "published",
     publishedAt: row.published_at ?? null,
+    tags: row.tags ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -77,6 +79,10 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
     if (options?.query?.trim()) {
       query = query.or(`title.ilike.%${options.query.trim()}%,content.ilike.%${options.query.trim()}%`);
+    }
+
+    if (options?.tag?.trim()) {
+      query = query.contains("tags", [options.tag.trim().toLowerCase()]);
     }
 
     const { data, error } = await query;
@@ -108,6 +114,10 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
     if (options?.query?.trim()) {
       query = query.or(`title.ilike.%${options.query.trim()}%,content.ilike.%${options.query.trim()}%`);
+    }
+
+    if (options?.tag?.trim()) {
+      query = query.contains("tags", [options.tag.trim().toLowerCase()]);
     }
 
     const { data, error, count } = await query;
@@ -157,7 +167,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     }));
   },
 
-  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: IBlog["status"] }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: IBlog["status"]; tags?: string[] }): Promise<IBlog> {
     const supabase = getSupabaseClient();
     const status = input.status ?? "published";
     const now = new Date().toISOString();
@@ -174,6 +184,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
         author_name: input.authorName ?? null,
         status,
         published_at: status === "published" ? now : null,
+        tags: input.tags ?? [],
       })
       .select(BLOG_SELECT)
       .single();
@@ -187,7 +198,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
 
   async updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: IBlog["status"]; publishedAt?: string | null },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: IBlog["status"]; publishedAt?: string | null; tags?: string[] },
   ): Promise<IBlog> {
     const supabase = getSupabaseClient();
     const { data: existing, error: fetchError } = await supabase
@@ -219,6 +230,7 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     if (input.imageUrl !== undefined) updatePayload.image_url = input.imageUrl;
     if (input.status !== undefined) updatePayload.status = newStatus;
     updatePayload.published_at = publishedAt;
+    if (input.tags !== undefined) updatePayload.tags = input.tags;
 
     const { data, error } = await supabase
       .from("blogs")

@@ -15,6 +15,7 @@ let blogs: IBlog[] = [
     authorName: null,
     status: "published",
     publishedAt: SEED_DATE,
+    tags: ["react", "intro"],
     createdAt: SEED_DATE,
     updatedAt: SEED_DATE,
   },
@@ -30,10 +31,16 @@ let blogs: IBlog[] = [
     authorName: null,
     status: "published",
     publishedAt: SEED_DATE,
+    tags: ["graphql"],
     createdAt: SEED_DATE,
     updatedAt: SEED_DATE,
   },
 ];
+
+function matchesTag(blog: IBlog, tag?: string): boolean {
+  if (!tag?.trim()) return true;
+  return blog.tags.includes(tag.trim().toLowerCase());
+}
 
 function matchesQuery(blog: IBlog, query?: string): boolean {
   if (!query?.trim()) return true;
@@ -55,7 +62,7 @@ function generateId(): string {
 export const blogsRepository: IBlogsRepository = {
   async getBlogs(options?: IBlogViewerOptions): Promise<IBlog[]> {
     return blogs
-      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query))
+      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query) && matchesTag(b, options?.tag))
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   },
 
@@ -64,7 +71,7 @@ export const blogsRepository: IBlogsRepository = {
     const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : 1;
 
     const sorted = blogs
-      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query))
+      .filter((b) => isVisible(b, options) && matchesQuery(b, options?.query) && matchesTag(b, options?.tag))
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     const totalCount = sorted.length;
     const start = (safePage - 1) * safePageSize;
@@ -95,7 +102,7 @@ export const blogsRepository: IBlogsRepository = {
     }));
   },
 
-  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: import("@/types").BlogStatus }): Promise<IBlog> {
+  async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: import("@/types").BlogStatus; tags?: string[] }): Promise<IBlog> {
     const now = new Date().toISOString();
     const status = input.status ?? "published";
     const newBlog: IBlog = {
@@ -110,6 +117,7 @@ export const blogsRepository: IBlogsRepository = {
       authorName: input.authorName ?? null,
       status,
       publishedAt: status === "published" ? now : null,
+      tags: input.tags ?? [],
       createdAt: now,
       updatedAt: now,
     };
@@ -120,7 +128,7 @@ export const blogsRepository: IBlogsRepository = {
 
   async updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: import("@/types").BlogStatus; publishedAt?: string | null },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: import("@/types").BlogStatus; publishedAt?: string | null; tags?: string[] },
   ): Promise<IBlog> {
     const existing = blogs.find((blog) => blog.id === id);
     if (!existing) {
@@ -142,6 +150,7 @@ export const blogsRepository: IBlogsRepository = {
       ...(input.content !== undefined && { content: input.content }),
       ...(input.isGood !== undefined && { isGood: input.isGood }),
       ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
+      ...(input.tags !== undefined && { tags: input.tags }),
       status: newStatus,
       publishedAt,
       updatedAt: now,

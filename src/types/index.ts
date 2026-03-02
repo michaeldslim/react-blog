@@ -4,6 +4,7 @@ export interface IBlogViewerOptions {
   viewerUserId?: string | null;
   isAdmin?: boolean;
   query?: string;
+  tag?: string;
 }
 
 export interface IBlog {
@@ -18,6 +19,7 @@ export interface IBlog {
   authorName: string | null;
   status: BlogStatus;
   publishedAt: string | null;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -32,10 +34,10 @@ export interface IBlogsRepository {
   getBlogsPaginated(page: number, pageSize: number, options?: IBlogViewerOptions): Promise<IBlogsPage>;
   getBlogById(id: string): Promise<IBlog | undefined>;
   getBlogDates(): Promise<{ date: string; count: number }[]>;
-  createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: BlogStatus }): Promise<IBlog>;
+  createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: BlogStatus; tags?: string[] }): Promise<IBlog>;
   updateBlog(
     id: string,
-    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: BlogStatus; publishedAt?: string | null },
+    input: { title?: string; content?: string; isGood?: boolean; imageUrl?: string | null; status?: BlogStatus; publishedAt?: string | null; tags?: string[] },
   ): Promise<IBlog>;
   deleteBlog(id: string): Promise<boolean>;
   toggleBlogGood(id: string): Promise<IBlog>;
