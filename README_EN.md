@@ -1,37 +1,65 @@
+# React Blog
+
+A full-stack blog built with Next.js (App Router) + GraphQL Yoga.
+
+## Features
+
+ - **Auth**: NextAuth (Google)
+ - **CRUD**: Create / Edit / Delete posts (authenticated only)
+ - **Draft / Publish / Scheduled** workflow (`status`, `publishedAt`)
+ - **Search**: title + content search via `?q=...` (debounced)
+ - **Tags**: `tags: string[]` + `?tag=...` filtering + clickable tag pills
+ - **Archive**: calendar filter via `?date=...`
+ - **Dedicated post pages**: `/blog/[id]` with shareable URLs, copy-link/share buttons, and per-post SEO metadata
+ - **Storage**: optional Supabase Storage image uploads (and cleanup on update/delete)
+
+## Routes
+
+ - **Home feed**: `/` (list, create/edit UI, search/tags/archive)
+ - **Post detail**: `/blog/[id]`
+ - **GraphQL**: `/api/graphql` (GraphiQL available in dev)
+
 ## Getting Started
 
-First, run the development server:
+ ```bash
+ npm install
+ npm run dev
+ ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+ Open:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ - `http://localhost:3000`
+ - `http://localhost:3000/api/graphql`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+ Create `.env.local` in the project root.
 
-## Learn More
+ ```env
+ # app
+ NEXT_PUBLIC_BASE_URL=http://localhost:3000
+ NEXT_PUBLIC_BLOGS_PAGE_SIZE=5
 
-To learn more about Next.js, take a look at the following resources:
+ # choose repository backend
+ BLOGS_REPOSITORY=memory # or supabase
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+ # NextAuth
+ NEXTAUTH_SECRET=...
+ NEXTAUTH_URL=http://localhost:3000
+ GOOGLE_CLIENT_ID=...
+ GOOGLE_CLIENT_SECRET=...
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+ # Supabase (optional; required when BLOGS_REPOSITORY=supabase OR when enabling image uploads)
+ NEXT_PUBLIC_SUPABASE_URL=...
+ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+ SUPABASE_URL=...
+ SUPABASE_SERVICE_ROLE_KEY=...
+ ```
 
-## Deploy on Vercel
+ Notes:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ - **`NEXT_PUBLIC_BASE_URL`** should be your Railway domain in production (e.g. `https://your-app.up.railway.app`).
+ - If using Supabase images, `next.config.ts` must allow `*.supabase.co` remote images (already configured).
 
 ---
 
@@ -40,7 +68,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 - **Framework**: Next.js (App Router) + React + TypeScript
 - **Styling/UI**: Tailwind CSS + ShadCN UI
 - **Backend**: GraphQL Yoga (`/api/graphql`) + TypeScript
-- **Data Layer**: In-memory `blogsRepository` (designed to be replaced by Supabase later)
+- **Data Layer**: `activeBlogsRepository` switches between in-memory and Supabase implementations
 
 ### 1. Commands to recreate this blog from scratch
 
@@ -93,26 +121,28 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 #### Key files
 
-- `src/types/index.ts`
-  - Defines the `IBlog` interface
-  - Fields: `id`, `title`, `content`, `isGood`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
+ - `src/types/index.ts`
+   - Defines the `IBlog` interface
+   - Fields: `id`, `title`, `content`, `imageUrl`, `authorId`, `authorName`, `status`, `publishedAt`, `tags`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
 
-- `src/lib/blogsRepository.ts`
-  - Repository layer backed by an in-memory `blogs: IBlog[]` array (exported as `blogsRepository`)
-  - Methods:
-    - `getBlogs()`
-    - `getBlogById(id)`
-    - `createBlog({ title, content })`
-    - `updateBlog(id, { title?, content?, isGood? })`
-    - `deleteBlog(id)`
-    - `toggleBlogGood(id)`
+ - `src/lib/blogsRepository.ts`
+   - Repository layer backed by an in-memory `blogs: IBlog[]` array (exported as `blogsRepository`)
+   - Methods:
+     - `getBlogs(options?)`
+     - `getBlogsPaginated(page, pageSize, options?)`
+     - `getBlogById(id)`
+     - `getBlogDates()`
+     - `createBlog({ title, content, imageUrl?, status?, tags? })`
+     - `updateBlog(id, { title?, content?, isGood?, imageUrl?, status?, publishedAt?, tags? })`
+     - `deleteBlog(id)`
+     - `toggleBlogGood(id)`
 
-- `src/app/api/graphql/route.ts`
-  - GraphQL Yoga-based API route (`/api/graphql`)
-  - `typeDefs` defines the GraphQL schema:
-    - `type Blog`
-    - `type Query { blogs, blog }`
-    - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood }`
+ - `src/app/api/graphql/route.ts`
+   - GraphQL Yoga-based API route (`/api/graphql`)
+   - `typeDefs` defines the GraphQL schema:
+     - `type Blog` (includes status/publishedAt/tags)
+     - `type Query { blogs(page, pageSize, query?, tag?), blog(id), blogDates }`
+     - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood, likeBlog, dislikeBlog }`
   - `resolvers` delegate the actual work to `blogsRepository`
   - Uses `createYoga` + `createSchema` to expose the schema/resolvers as a Next.js Route Handler
 
@@ -125,19 +155,24 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
   - Next.js root layout
   - Wraps the entire app in `<Providers>{children}</Providers>` inside `<body>`
 
-- `src/app/page.tsx`
-  - Main blog UI page
-  - Key pieces:
-    - GraphQL query/mutation strings: `GET_BLOGS`, `CREATE_BLOG`, `UPDATE_BLOG`, `DELETE_BLOG`, `TOGGLE_BLOG_GOOD`
-    - `graphqlRequest<TData, TVariables>()` helper to call `/api/graphql`
-    - TanStack Query (`useQuery`, `useMutation`, `useQueryClient`) to load/cache blogs and handle mutations
-    - Local state focused on the create form and edit dialog (`createTitle`, `createContent`, `editingBlog`, `updating`)
-    - Uses ShadCN components:
-      - `Card`, `CardHeader`, `CardContent`, `CardFooter` for layout
-      - `Input`, `Textarea` for create/edit forms
-      - `Button` for create/edit/delete actions
-      - A YouTube-style pill UI at the bottom of each card showing like/dislike icon buttons and `likesCount` / `dislikesCount`
-      - `Dialog` for the edit modal
+ - `src/app/page.tsx`
+   - Main blog UI page
+   - Key pieces:
+     - GraphQL query/mutation strings: `GET_BLOGS`, `CREATE_BLOG`, `UPDATE_BLOG`, `DELETE_BLOG`, `TOGGLE_BLOG_GOOD`
+     - `GET_BLOGS` supports `query` (search) and `tag` filtering
+     - URL params: `page`, `pageSize`, `q`, `tag`, `date`
+     - TanStack Query (`useQuery`, `useMutation`, `useQueryClient`) to load/cache blogs and handle mutations
+     - Uses ShadCN components:
+       - `Card`, `CardHeader`, `CardContent`, `CardFooter` for layout
+       - `Input`, `Textarea` for create/edit forms
+       - `Button` for create/edit/delete actions
+       - A YouTube-style pill UI at the bottom of each card showing like/dislike icon buttons and `likesCount` / `dislikesCount`
+       - `Dialog` for the edit modal
+
+ - `src/app/blog/[id]/page.tsx`
+   - Dedicated post page
+   - Uses `generateMetadata` for per-post SEO
+   - Renders image/tags and provides copy-link/share actions
 
 ### 2. Current architecture overview
 

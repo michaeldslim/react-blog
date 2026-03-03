@@ -1,39 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# React Blog
 
-## Getting Started
+ Next.js (App Router) + GraphQL Yoga 기반의 풀스택 블로그 프로젝트입니다.
 
-First, run the development server:
+ ## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+ - **Auth**: NextAuth (Google)
+ - **CRUD**: Create / Edit / Delete posts (authenticated only)
+ - **Draft / Publish / Scheduled** workflow (`status`, `publishedAt`)
+ - **Search**: title + content full-text search via `?q=...` (debounced)
+ - **Tags**: `tags: string[]` + `?tag=...` filtering + clickable tag pills
+ - **Archive**: calendar filter via `?date=...`
+ - **Dedicated post pages**: `/blog/[id]` with shareable URLs, copy-link/share buttons, and per-post SEO metadata
+ - **Storage**: optional Supabase Storage image uploads (and cleanup on update/delete)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ ## Routes
 
-You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+ - **Home feed**: `/` (list, create/edit UI, search/tags/archive)
+ - **Post detail**: `/blog/[id]`
+ - **GraphQL**: `/api/graphql` (GraphiQL available in dev)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+ ## Getting Started
 
-## Learn More
+ ```bash
+ npm install
+ npm run dev
+ ```
 
-To learn more about Next.js, take a look at the following resources:
+ Open:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+ - `http://localhost:3000`
+ - `http://localhost:3000/api/graphql`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+ ## Environment Variables
 
-## Deploy on Vercel
+ Create `.env.local` in the project root.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+ ```env
+ # app
+ NEXT_PUBLIC_BASE_URL=http://localhost:3000
+ NEXT_PUBLIC_BLOGS_PAGE_SIZE=5
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ # choose repository backend
+ BLOGS_REPOSITORY=memory # or supabase
+
+ # NextAuth
+ NEXTAUTH_SECRET=...
+ NEXTAUTH_URL=http://localhost:3000
+ GOOGLE_CLIENT_ID=...
+ GOOGLE_CLIENT_SECRET=...
+
+ # Supabase (optional; required when BLOGS_REPOSITORY=supabase OR when enabling image uploads)
+ NEXT_PUBLIC_SUPABASE_URL=...
+ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+ SUPABASE_URL=...
+ SUPABASE_SERVICE_ROLE_KEY=...
+ ```
+
+ Notes:
+
+ - **`NEXT_PUBLIC_BASE_URL`** should be your Railway domain in production (e.g. `https://your-app.up.railway.app`).
+ - If using Supabase images, `next.config.ts` must allow `*.supabase.co` remote images (already configured).
 
 ---
 
@@ -95,77 +121,63 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
 #### 핵심 파일들
 
-- `src/types/index.ts`
-  - `IBlog` 인터페이스 정의
-  - 필드: `id`, `title`, `content`, `isGood`, `likesCount`, `dislikesCount`, `imageUrl`, `createdAt`, `updatedAt`
+ - `src/types/index.ts`
+   - `IBlog` 인터페이스 정의
+   - 필드: `id`, `title`, `content`, `imageUrl`, `authorId`, `authorName`, `status`, `publishedAt`, `tags`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
 
-- `src/lib/blogsRepository.ts`
-  - In-memory 배열 `blogs: IBlog[]` 를 사용하는 `IBlogsRepository` 구현체 (`blogsRepository` export)
-  - 메서드:
-    - `getBlogs()`
-    - `getBlogsPaginated(page, pageSize)`
-    - `getBlogById(id)`
-    - `getBlogDates()`
-    - `createBlog({ title, content, imageUrl? })`
-    - `updateBlog(id, { title?, content?, isGood?, imageUrl? })`
-    - `deleteBlog(id)`
-    - `toggleBlogGood(id)`
-    - `likeBlog(id)`
-    - `dislikeBlog(id)`
+ - `src/lib/blogsRepository.ts`
+   - In-memory 배열 `blogs: IBlog[]` 를 사용하는 `IBlogsRepository` 구현체 (`blogsRepository` export)
+   - 메서드:
+     - `getBlogs(options?)`
+     - `getBlogsPaginated(page, pageSize, options?)`
+     - `getBlogById(id)`
+     - `getBlogDates()`
+     - `createBlog({ title, content, imageUrl?, status?, tags? })`
+     - `updateBlog(id, { title?, content?, isGood?, imageUrl?, status?, publishedAt?, tags? })`
+     - `deleteBlog(id)`
+     - `toggleBlogGood(id)`
+     - `likeBlog(id)`
+     - `dislikeBlog(id)`
 
-- `src/app/api/graphql/route.ts`
-  - GraphQL Yoga 기반 API 라우트(`/api/graphql`)
-  - `typeDefs` 에서 GraphQL 스키마 정의
-    - `type Blog`
-    - `type BlogsPage`, `type BlogDateCount`
-    - `type Query { blogs(page, pageSize), blog(id), blogDates }`
-    - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood, likeBlog, dislikeBlog }`
-  - `resolvers` 에서 실제 구현을 `activeBlogsRepository` 가 선택한 `blogsRepository` 에 위임
-  - `createYoga` + `createSchema` 로 스키마와 리졸버를 묶어 Next.js Route Handler 로 노출
+ - `src/app/api/graphql/route.ts`
+   - GraphQL Yoga 기반 API 라우트(`/api/graphql`)
+   - `typeDefs` 에서 GraphQL 스키마 정의
+     - `type Blog` (status/publishedAt/tags 포함)
+     - `type BlogsPage`, `type BlogDateCount`
+     - `type Query { blogs(page, pageSize, query?, tag?), blog(id), blogDates }`
+     - `type Mutation { createBlog, updateBlog, deleteBlog, toggleBlogGood, likeBlog, dislikeBlog }`
+   - `resolvers` 에서 실제 구현을 `activeBlogsRepository` 가 선택한 `blogsRepository` 에 위임
+   - `createYoga` + `createSchema` 로 스키마와 리졸버를 묶어 Next.js Route Handler 로 노출
 
 - `src/lib/activeBlogsRepository.ts`
   - `BLOGS_REPOSITORY` 환경 변수에 따라 `blogsRepository` 구현체를 선택
     - 기본값: `memory`
     - `supabase` 설정 시: `supabaseBlogsRepository` 사용
 
-- `src/lib/supabaseBlogsRepository.ts`
-  - Supabase(Postgres + Storage) 기반 `IBlogsRepository` 구현체
-  - `updateBlog` / `deleteBlog` 에서 이미지 변경/삭제 시 Storage 객체 정리
-
-- `src/app/api/auth/[...nextauth]/route.ts`
-  - NextAuth API 라우트
-  - Google 로그인 제공
-
-- `src/components/providers.tsx`
-  - `Providers` 컴포넌트 정의
-  - 전역 Toast(Sonner + ShadCN)를 위해 `<Toaster />` 를 렌더링
-  - TanStack Query의 `QueryClientProvider` 로 전체 앱을 감싸 전역 쿼리 클라이언트 제공
-  - NextAuth의 `SessionProvider` 로 로그인 세션 컨텍스트 제공
-
-- `src/lib/browserSupabaseClient.ts`
-  - 브라우저에서 Supabase Storage 업로드를 위한 클라이언트
-  - `uploadBlogImage(file)` 로 public URL 생성
-
-- `src/components/blog-calendar.tsx`
-  - 글 작성 날짜 기반 캘린더 필터 UI
-
 - `src/app/layout.tsx`
   - Next.js 루트 레이아웃
   - `<body>` 안에서 `<Providers>{children}</Providers>` 로 전체 앱을 래핑
 
-- `src/app/page.tsx`
-  - 블로그 메인 페이지 UI
-  - 주요 요소:
-    - GraphQL 쿼리/뮤테이션 문자열: `GET_BLOGS`, `CREATE_BLOG`, `UPDATE_BLOG`, `DELETE_BLOG`, `TOGGLE_BLOG_GOOD`
-    - `graphqlRequest<TData, TVariables>()` 헬퍼 함수로 `/api/graphql` 호출
-    - TanStack Query(`useQuery`, `useMutation`, `useQueryClient`)로 blogs 데이터 로딩/캐싱 및 뮤테이션 관리
-    - 로컬 상태는 작성 폼 및 수정 다이얼로그(`createTitle`, `createContent`, `editingBlog`, `updating`)에 집중
-    - ShadCN 컴포넌트 사용:
-      - `Card`, `CardHeader`, `CardContent`, `CardFooter` 로 레이아웃 구성
-      - `Input`, `Textarea` 로 글 작성/수정 폼 구현
-      - `Button` 으로 생성/수정/삭제 액션
-      - 하단에 좋아요/싫어요 아이콘 버튼(YouTube 스타일)과 `likesCount` / `dislikesCount` 카운트를 보여주는 Pill UI
-      - `Dialog` 로 글 수정 모달 구현
+ - `src/app/page.tsx`
+   - 블로그 메인 페이지 UI
+   - 주요 요소:
+     - GraphQL 쿼리/뮤테이션 문자열: `GET_BLOGS`, `CREATE_BLOG`, `UPDATE_BLOG`, `DELETE_BLOG`, `TOGGLE_BLOG_GOOD`
+     - `GET_BLOGS` supports `query` (search) and `tag` filtering
+     - `graphqlRequest<TData, TVariables>()` 헬퍼 함수로 `/api/graphql` 호출
+     - TanStack Query(`useQuery`, `useMutation`, `useQueryClient`)로 blogs 데이터 로딩/캐싱 및 뮤테이션 관리
+     - URL params:
+       - `?page=...&pageSize=...`
+       - `?q=...` (search)
+       - `?tag=...` (tag filter)
+       - `?date=...` (archive)
+     - ShadCN 컴포넌트 사용:
+       - `Card`, `Dialog`, `Input`, `Textarea`, `Badge`, `Button`
+       - 글 생성/수정 시 tags 입력 (Enter/Comma)
+
+ - `src/app/blog/[id]/page.tsx`
+   - 단일 포스트 상세 페이지
+   - `generateMetadata` 로 포스트별 SEO 메타데이터 설정
+   - 이미지/태그 렌더링 + 링크 공유(복사/Share)
 
 ### 2. 현재 아키텍처 요약
 
