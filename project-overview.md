@@ -42,6 +42,8 @@
 - **API Layer**: GraphQL Yoga를 Next.js Route Handler(`app/api/graphql/route.ts`)에 통합
 - **Data Layer**: Repository 패턴을 적용하여 데이터 소스(`memory` 또는 `supabase`)를 추상화
 
+단축 URL은 `/s/[code]` 라우트를 통해 동작하며, `shortCode` 값으로 포스트를 찾아 `/blog/[id]`로 리다이렉트합니다.
+
 ### 폴더 구조
 - `src/app`: Next.js App Router 진입점 (페이지 및 API 라우트)
 - `src/components`: UI 컴포넌트 (ShadCN UI, 커스텀 컴포넌트)
@@ -100,6 +102,7 @@
 - **`src/lib/blogsRepository.ts`**: (개발/테스트용) 메모리 기반의 블로그 데이터 저장소 구현체입니다. 서버 재시작 시 초기화됩니다.
 - **`src/lib/supabaseBlogsRepository.ts`**: (운영용) Supabase PostgreSQL 데이터베이스와 연동하는 블로그 데이터 저장소 구현체입니다. Storage(이미지) 삭제 로직도 포함되어 있습니다.
 - **`src/types/index.ts`**: 블로그 포스트(`IBlog`), 페이지네이션(`IBlogsPage`), 리포지토리 인터페이스(`IBlogsRepository`) 등 핵심 TypeScript 타입을 정의합니다.
+ - **`src/app/s/[code]/route.ts`**: 단축 URL 리다이렉트 라우트입니다. `/s/[code]` 로 접근하면 `shortCode` 로 포스트를 조회한 뒤 `/blog/[id]` 로 이동합니다.
 
 ---
 
@@ -136,6 +139,7 @@ async function graphqlRequest<TData, TVariables = Record<string, unknown>>(
 // 인터페이스 정의
 export interface IBlogsRepository {
   getBlogs(): Promise<IBlog[]>;
+  getBlogByShortCode(shortCode: string): Promise<IBlog | undefined>;
   createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog>;
   // ... 기타 메서드
 }
@@ -146,6 +150,16 @@ export const blogsRepository: IBlogsRepository =
   backend === "supabase" ? supabaseBlogsRepository : memoryBlogsRepository;
 ```
 *설명*: 데이터 접근 로직을 인터페이스(`IBlogsRepository`)로 추상화하여, GraphQL 리졸버 코드를 수정하지 않고도 환경 변수 하나만으로 메모리 DB와 실제 DB(Supabase)를 쉽게 전환할 수 있게 설계되었습니다.
+
+추가로, 단축 URL을 위해 `IBlog.shortCode` 필드와 `getBlogByShortCode(shortCode)` 메서드가 포함되어 있습니다.
+
+### 단축 URL 동작 흐름 (`/s/[code]`)
+
+1. 사용자가 공유된 단축 링크(`/s/[code]`)로 접속
+2. `src/app/s/[code]/route.ts`에서 `blogsRepository.getBlogByShortCode(code)`로 포스트 조회
+3. 포스트가 존재하면 `/blog/[id]` 로 리다이렉트
+
+단축 코드(`shortCode`)는 서버에서 Node.js `crypto`를 사용해 `base64url` 형태의 약 8자 문자열로 생성됩니다.
 
 ### 페이지네이션 및 필터링 적용 쿼리 (`src/app/page.tsx`)
 ```typescript

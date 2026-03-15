@@ -7,6 +7,7 @@ import type { JWT } from "next-auth/jwt";
 const typeDefs = /* GraphQL */ `
   type Blog {
     id: ID!
+    shortCode: String!
     title: String!
     content: String!
     isGood: Boolean!

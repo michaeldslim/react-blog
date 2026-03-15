@@ -42,6 +42,8 @@ This project uses a full-stack architecture where the **frontend (Client Compone
 - **API Layer**: GraphQL Yoga integrated into Next.js Route Handler (`app/api/graphql/route.ts`)
 - **Data Layer**: Repository pattern applied to abstract data sources (`memory` or `supabase`)
 
+Short URLs are supported via the `/s/[code]` route. The app looks up a post by `shortCode` and redirects to `/blog/[id]`.
+
 ### Folder Structure
 - `src/app`: Next.js App Router entry point (pages and API routes)
 - `src/components`: UI components (ShadCN UI and custom components)
@@ -100,6 +102,7 @@ Each layer of the project is connected as follows:
 - **`src/lib/blogsRepository.ts`**: In-memory blog data store implementation (for development/testing). Reset when the server restarts.
 - **`src/lib/supabaseBlogsRepository.ts`**: Production-oriented repository implementation integrated with Supabase PostgreSQL. Also includes Storage (image) deletion logic.
 - **`src/types/index.ts`**: Defines core TypeScript types such as blog post (`IBlog`), pagination (`IBlogsPage`), and repository interface (`IBlogsRepository`).
+ - **`src/app/s/[code]/route.ts`**: Short URL redirect route. Visiting `/s/[code]` looks up a post by `shortCode` and redirects to `/blog/[id]`.
 
 ---
 
@@ -136,6 +139,7 @@ async function graphqlRequest<TData, TVariables = Record<string, unknown>>(
 // interface definition
 export interface IBlogsRepository {
   getBlogs(): Promise<IBlog[]>;
+  getBlogByShortCode(shortCode: string): Promise<IBlog | undefined>;
   createBlog(input: { title: string; content: string; imageUrl?: string | null }): Promise<IBlog>;
   // ... other methods
 }
@@ -146,6 +150,16 @@ export const blogsRepository: IBlogsRepository =
   backend === "supabase" ? supabaseBlogsRepository : memoryBlogsRepository;
 ```
 *Explanation*: By abstracting data access logic behind the `IBlogsRepository` interface, the project can switch between memory DB and real DB (Supabase) using only one environment variable, without changing GraphQL resolver code.
+
+In addition, short URLs are supported via `IBlog.shortCode` and `getBlogByShortCode(shortCode)`.
+
+### Short URL Flow (`/s/[code]`)
+
+1. A user visits a shared short link (`/s/[code]`).
+2. `src/app/s/[code]/route.ts` calls `blogsRepository.getBlogByShortCode(code)`.
+3. If a post is found, the route redirects to `/blog/[id]`.
+
+The short code (`shortCode`) is generated on the server using Node.js `crypto` and encoded as a `base64url` string (roughly 8 characters).
 
 ### Query with Pagination and Filtering (`src/app/page.tsx`)
 ```typescript

@@ -11,12 +11,16 @@ A full-stack blog built with Next.js (App Router) + GraphQL Yoga.
  - **Tags**: `tags: string[]` + `?tag=...` filtering + clickable tag pills
  - **Archive**: calendar filter via `?date=...`
  - **Dedicated post pages**: `/blog/[id]` with shareable URLs, copy-link/share buttons, and per-post SEO metadata
+ - **Short URLs**: `/s/[code]` redirects to `/blog/[id]` (copy/share uses the short URL)
  - **Storage**: optional Supabase Storage image uploads (and cleanup on update/delete)
+
+ The short code (`shortCode`) is generated on the server using Node.js `crypto` and encoded as a `base64url` string (roughly 8 characters).
 
 ## Routes
 
  - **Home feed**: `/` (list, create/edit UI, search/tags/archive)
  - **Post detail**: `/blog/[id]`
+ - **Short URL**: `/s/[code]` → redirects to `/blog/[id]`
  - **GraphQL**: `/api/graphql` (GraphiQL available in dev)
 
 ## Getting Started
@@ -123,7 +127,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
  - `src/types/index.ts`
    - Defines the `IBlog` interface
-   - Fields: `id`, `title`, `content`, `imageUrl`, `authorId`, `authorName`, `status`, `publishedAt`, `tags`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
+   - Fields: `id`, `shortCode`, `title`, `content`, `imageUrl`, `authorId`, `authorName`, `status`, `publishedAt`, `tags`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
 
  - `src/lib/blogsRepository.ts`
    - Repository layer backed by an in-memory `blogs: IBlog[]` array (exported as `blogsRepository`)
@@ -131,11 +135,16 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
      - `getBlogs(options?)`
      - `getBlogsPaginated(page, pageSize, options?)`
      - `getBlogById(id)`
+     - `getBlogByShortCode(shortCode)`
      - `getBlogDates()`
      - `createBlog({ title, content, imageUrl?, status?, tags? })`
      - `updateBlog(id, { title?, content?, isGood?, imageUrl?, status?, publishedAt?, tags? })`
      - `deleteBlog(id)`
      - `toggleBlogGood(id)`
+
+ - `src/app/s/[code]/route.ts`
+   - Short URL redirect route (`/s/[code]` → `/blog/[id]`)
+   - Looks up a post by `shortCode` and redirects
 
  - `src/app/api/graphql/route.ts`
    - GraphQL Yoga-based API route (`/api/graphql`)
@@ -200,11 +209,22 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 1. Create a new project in the Supabase console
 2. In Database → Table Editor, create a `blogs` table (example):
    - `id`: `uuid` (primary key) or `text`
+   - `short_code`: `text` (**unique**, used for short URLs)
    - `title`: `text`
    - `content`: `text`
    - `is_good`: `boolean` (default `true`)
    - `created_at`: `timestamptz` (default `now()`)
    - `updated_at`: `timestamptz` (default `now()`)
+
+  (Recommended) migration SQL:
+
+  ```sql
+  alter table public.blogs
+  add column if not exists short_code text;
+
+  create unique index if not exists blogs_short_code_unique
+  on public.blogs (short_code);
+  ```
 
 3. When mapping to the TypeScript `IBlog` interface, be careful to convert snake_case column names to camelCase (`is_good` → `isGood`, `created_at` → `createdAt`, etc.)
 

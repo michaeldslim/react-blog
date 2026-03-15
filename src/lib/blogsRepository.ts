@@ -1,10 +1,12 @@
 import type { IBlog, IBlogViewerOptions, IBlogsPage, IBlogsRepository } from "@/types";
+import { randomBytes } from "crypto";
 
 const SEED_DATE = new Date().toISOString();
 
 let blogs: IBlog[] = [
   {
     id: "1",
+    shortCode: "welcome",
     title: "Welcome to your React Blog",
     content: "This is your first post. You can create, edit, delete, and toggle good/bad.",
     isGood: true,
@@ -21,6 +23,7 @@ let blogs: IBlog[] = [
   },
   {
     id: "2",
+    shortCode: "second",
     title: "Second Post",
     content: "Use this project to experiment with GraphQL and Firebase later on.",
     isGood: false,
@@ -59,6 +62,10 @@ function generateId(): string {
   return Math.random().toString(36).slice(2, 11);
 }
 
+function generateShortCode(): string {
+  return randomBytes(6).toString("base64url");
+}
+
 export const blogsRepository: IBlogsRepository = {
   async getBlogs(options?: IBlogViewerOptions): Promise<IBlog[]> {
     return blogs
@@ -88,6 +95,11 @@ export const blogsRepository: IBlogsRepository = {
     return blogs.find((blog) => blog.id === id);
   },
 
+  async getBlogByShortCode(shortCode: string): Promise<IBlog | undefined> {
+    const normalized = shortCode.trim();
+    return blogs.find((blog) => blog.shortCode === normalized);
+  },
+
   async getBlogDates(): Promise<{ date: string; count: number }[]> {
     const dateCounts = new Map<string, number>();
     
@@ -105,8 +117,15 @@ export const blogsRepository: IBlogsRepository = {
   async createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: import("@/types").BlogStatus; tags?: string[] }): Promise<IBlog> {
     const now = new Date().toISOString();
     const status = input.status ?? "published";
+
+    let shortCode = generateShortCode();
+    while (blogs.some((b) => b.shortCode === shortCode)) {
+      shortCode = generateShortCode();
+    }
+
     const newBlog: IBlog = {
       id: generateId(),
+      shortCode,
       title: input.title,
       content: input.content,
       isGood: false,

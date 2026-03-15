@@ -64,7 +64,7 @@ export default async function BlogPostPage({ params }: IProps) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-  const postUrl = `${baseUrl}/blog/${id}`;
+  const shortUrl = `${baseUrl}/s/${blog.shortCode}`;
 
   const publishedLabel = blog.publishedAt
     ? new Date(blog.publishedAt).toLocaleDateString("en-US", {
@@ -138,7 +138,7 @@ export default async function BlogPostPage({ params }: IProps) {
           </div>
 
           <footer className="border-t pt-6">
-            <CopyLinkButton url={postUrl} title={blog.title} />
+            <CopyLinkButton url={shortUrl} title={blog.title} />
           </footer>
         </article>
       </main>

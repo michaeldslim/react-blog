@@ -9,6 +9,7 @@ export interface IBlogViewerOptions {
 
 export interface IBlog {
   id: string;
+  shortCode: string;
   title: string;
   content: string;
   isGood: boolean;
@@ -33,6 +34,7 @@ export interface IBlogsRepository {
   getBlogs(options?: IBlogViewerOptions): Promise<IBlog[]>;
   getBlogsPaginated(page: number, pageSize: number, options?: IBlogViewerOptions): Promise<IBlogsPage>;
   getBlogById(id: string): Promise<IBlog | undefined>;
+  getBlogByShortCode(shortCode: string): Promise<IBlog | undefined>;
   getBlogDates(): Promise<{ date: string; count: number }[]>;
   createBlog(input: { title: string; content: string; imageUrl?: string | null; authorId?: string | null; authorName?: string | null; status?: BlogStatus; tags?: string[] }): Promise<IBlog>;
   updateBlog(

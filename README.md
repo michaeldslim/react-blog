@@ -11,12 +11,16 @@
  - **Tags**: `tags: string[]` + `?tag=...` filtering + clickable tag pills
  - **Archive**: calendar filter via `?date=...`
  - **Dedicated post pages**: `/blog/[id]` with shareable URLs, copy-link/share buttons, and per-post SEO metadata
+ - **Short URLs**: `/s/[code]` redirects to `/blog/[id]` (copy/share uses the short URL)
  - **Storage**: optional Supabase Storage image uploads (and cleanup on update/delete)
+
+ 단축 코드(`shortCode`)는 서버에서 Node.js `crypto`를 사용해 `base64url` 형태의 약 8자 문자열로 생성됩니다.
 
  ## Routes
 
  - **Home feed**: `/` (list, create/edit UI, search/tags/archive)
  - **Post detail**: `/blog/[id]`
+ - **Short URL**: `/s/[code]` → redirects to `/blog/[id]`
  - **GraphQL**: `/api/graphql` (GraphiQL available in dev)
 
  ## Getting Started
@@ -123,7 +127,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 
  - `src/types/index.ts`
    - `IBlog` 인터페이스 정의
-   - 필드: `id`, `title`, `content`, `imageUrl`, `authorId`, `authorName`, `status`, `publishedAt`, `tags`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
+   - 필드: `id`, `shortCode`, `title`, `content`, `imageUrl`, `authorId`, `authorName`, `status`, `publishedAt`, `tags`, `likesCount`, `dislikesCount`, `createdAt`, `updatedAt`
 
  - `src/lib/blogsRepository.ts`
    - In-memory 배열 `blogs: IBlog[]` 를 사용하는 `IBlogsRepository` 구현체 (`blogsRepository` export)
@@ -131,6 +135,7 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
      - `getBlogs(options?)`
      - `getBlogsPaginated(page, pageSize, options?)`
      - `getBlogById(id)`
+     - `getBlogByShortCode(shortCode)`
      - `getBlogDates()`
      - `createBlog({ title, content, imageUrl?, status?, tags? })`
      - `updateBlog(id, { title?, content?, isGood?, imageUrl?, status?, publishedAt?, tags? })`
@@ -138,6 +143,10 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
      - `toggleBlogGood(id)`
      - `likeBlog(id)`
      - `dislikeBlog(id)`
+
+ - `src/app/s/[code]/route.ts`
+   - 단축 URL 리다이렉트 라우트 (`/s/[code]` → `/blog/[id]`)
+   - `shortCode`로 포스트를 조회한 뒤 리다이렉트
 
  - `src/app/api/graphql/route.ts`
    - GraphQL Yoga 기반 API 라우트(`/api/graphql`)
@@ -203,8 +212,9 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 ### 1. Supabase 프로젝트 및 테이블 설계
 
 1. Supabase 콘솔에서 새 프로젝트 생성
-2. Database → Table Editor 에서 `blogs` 테이블 생성 (예시):
+ 2. Database → Table Editor 에서 `blogs` 테이블 생성 (예시):
    - `id`: `uuid` (primary key) 또는 `text`
+   - `short_code`: `text` (**unique**, 단축 URL용)
    - `title`: `text`
    - `content`: `text`
    - `is_good`: `boolean` (기본값 `false`)
@@ -213,6 +223,16 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
    - `image_url`: `text` (nullable)
    - `created_at`: `timestamptz` (기본값 `now()`)
    - `updated_at`: `timestamptz` (기본값 `now()`)
+
+  (권장) 마이그레이션 SQL:
+
+  ```sql
+  alter table public.blogs
+  add column if not exists short_code text;
+
+  create unique index if not exists blogs_short_code_unique
+  on public.blogs (short_code);
+  ```
 
 3. (선택) 테마 저장을 원하면 `theme_preferences` 테이블 생성 (예시):
    - `anon_id`: `uuid` 또는 `text` (primary key)
