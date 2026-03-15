@@ -1,11 +1,13 @@
 import type { IBlog, IBlogViewerOptions, IBlogsPage, IBlogsRepository } from "@/types";
+import { randomBytes } from "crypto";
 import { getSupabaseClient } from "./supabaseClient";
 
 const BLOG_SELECT =
-  "id, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, status, published_at, tags, created_at, updated_at";
+  "id, short_code, title, content, is_good, likes_count, dislikes_count, image_url, author_id, author_name, status, published_at, tags, created_at, updated_at";
 
 type BlogsRow = {
   id: string;
+  short_code: string | null;
   title: string;
   content: string;
   is_good: boolean;
@@ -47,6 +49,7 @@ function extractStoragePathFromPublicUrl(publicUrl: string): string | null {
 function mapRowToBlog(row: BlogsRow): IBlog {
   return {
     id: row.id,
+    shortCode: row.short_code ?? row.id,
     title: row.title,
     content: row.content,
     isGood: row.is_good,
@@ -141,6 +144,19 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     return mapRowToBlog(data as BlogsRow);
   },
 
+  async getBlogByShortCode(shortCode: string): Promise<IBlog | undefined> {
+    const supabase = getSupabaseClient();
+    const normalized = shortCode.trim();
+    const { data, error } = await supabase
+      .from("blogs")
+      .select(BLOG_SELECT)
+      .eq("short_code", normalized)
+      .maybeSingle();
+    if (error) throw new Error(`Supabase getBlogByShortCode error: ${error.message}`);
+    if (!data) return undefined;
+    return mapRowToBlog(data as BlogsRow);
+  },
+
   async getBlogDates(): Promise<{ date: string; count: number }[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
@@ -171,29 +187,42 @@ export const supabaseBlogsRepository: IBlogsRepository = {
     const supabase = getSupabaseClient();
     const status = input.status ?? "published";
     const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("blogs")
-      .insert({
-        title: input.title,
-        content: input.content,
-        is_good: false,
-        likes_count: 0,
-        dislikes_count: 0,
-        image_url: input.imageUrl ?? null,
-        author_id: input.authorId ?? null,
-        author_name: input.authorName ?? null,
-        status,
-        published_at: status === "published" ? now : null,
-        tags: input.tags ?? [],
-      })
-      .select(BLOG_SELECT)
-      .single();
 
-    if (error || !data) {
-      throw new Error(`Supabase createBlog error: ${error?.message ?? "No data"}`);
+    const generateShortCode = () => randomBytes(6).toString("base64url");
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const shortCode = generateShortCode();
+      const { data, error } = await supabase
+        .from("blogs")
+        .insert({
+          short_code: shortCode,
+          title: input.title,
+          content: input.content,
+          is_good: false,
+          likes_count: 0,
+          dislikes_count: 0,
+          image_url: input.imageUrl ?? null,
+          author_id: input.authorId ?? null,
+          author_name: input.authorName ?? null,
+          status,
+          published_at: status === "published" ? now : null,
+          tags: input.tags ?? [],
+        })
+        .select(BLOG_SELECT)
+        .single();
+
+      if (!error && data) {
+        return mapRowToBlog(data as BlogsRow);
+      }
+
+      const errorCode = (error as { code?: unknown } | null)?.code;
+      const isUniqueViolation = typeof errorCode === "string" && errorCode === "23505";
+      if (!isUniqueViolation) {
+        throw new Error(`Supabase createBlog error: ${error?.message ?? "No data"}`);
+      }
     }
 
-    return mapRowToBlog(data as BlogsRow);
+    throw new Error("Supabase createBlog error: failed to generate unique short code");
   },
 
   async updateBlog(

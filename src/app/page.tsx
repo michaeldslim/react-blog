@@ -41,6 +41,7 @@ const GET_BLOGS = `
     blogs(page: $page, pageSize: $pageSize, query: $query, tag: $tag) {
       items {
         id
+        shortCode
         title
         content
         isGood
@@ -78,6 +79,7 @@ const UPDATE_BLOG = `
   mutation UpdateBlog($id: ID!, $input: UpdateBlogInput!) {
     updateBlog(id: $id, input: $input) {
       id
+      shortCode
       title
       content
       isGood
