@@ -2,7 +2,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Build-time flag to control the theme switcher in the client bundle
-ARG BLOGS_REPOSITORY=supabase
+ARG BLOGS_REPOSITORY=memory
 ENV BLOGS_REPOSITORY=${BLOGS_REPOSITORY}
 
 # Supabase public client variables need to be available at build time so
@@ -10,7 +10,7 @@ ENV BLOGS_REPOSITORY=${BLOGS_REPOSITORY}
 # Railway injects these as build args, so declare and promote them to ENV.
 ARG NEXT_PUBLIC_BASE_URL
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
-ARG NEXT_PUBLIC_BLOGS_PAGE_SIZE
+ARG NEXT_PUBLIC_BLOGS_PAGE_SIZE=5
 ENV NEXT_PUBLIC_BLOGS_PAGE_SIZE=${NEXT_PUBLIC_BLOGS_PAGE_SIZE}
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY

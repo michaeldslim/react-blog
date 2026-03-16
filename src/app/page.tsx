@@ -227,10 +227,9 @@ export default function HomePage() {
       : 1;
 
   const envPageSize = Number(process.env.NEXT_PUBLIC_BLOGS_PAGE_SIZE);
-  if (!Number.isFinite(envPageSize) || envPageSize <= 0) {
-    throw new Error("NEXT_PUBLIC_BLOGS_PAGE_SIZE must be a positive number");
-  }
-  const DEFAULT_POSTS_PER_PAGE = Math.floor(envPageSize);
+  const DEFAULT_POSTS_PER_PAGE = Number.isFinite(envPageSize) && envPageSize > 0
+    ? Math.floor(envPageSize)
+    : 5;
 
   const initialPageSizeFromUrl = Number(searchParams.get("pageSize"));
   const POSTS_PER_PAGE =
