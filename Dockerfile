@@ -34,6 +34,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ARG BLOGS_REPOSITORY=memory
+ENV BLOGS_REPOSITORY=${BLOGS_REPOSITORY}
 
 # Copy only what we need for runtime
 COPY package*.json ./
