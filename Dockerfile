@@ -8,6 +8,10 @@ ENV BLOGS_REPOSITORY=${BLOGS_REPOSITORY}
 # Supabase public client variables need to be available at build time so
 # Next.js can inline them into the client bundle when running `next build`.
 # Railway injects these as build args, so declare and promote them to ENV.
+ARG NEXT_PUBLIC_BASE_URL
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+ARG NEXT_PUBLIC_BLOGS_PAGE_SIZE
+ENV NEXT_PUBLIC_BLOGS_PAGE_SIZE=${NEXT_PUBLIC_BLOGS_PAGE_SIZE}
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
