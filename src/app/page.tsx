@@ -972,7 +972,7 @@ export default function HomePage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={`rounded-full cursor-pointer transition-transform transition-colors duration-150 hover:scale-105 active:scale-95 ${
+                          className={`rounded-full transition-transform transition-colors duration-150 hover:scale-105 active:scale-95 ${
                             blog.isGood
                               ? "bg-yellow-400 text-black hover:bg-yellow-400/90"
                               : "text-muted-foreground hover:bg-muted/40"
@@ -1000,7 +1000,7 @@ export default function HomePage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={`rounded-full cursor-pointer transition-colors duration-150 ${
+                          className={`rounded-full transition-colors duration-150 ${
                             !blog.isGood
                               ? "bg-muted text-black hover:bg-muted/80"
                               : "text-muted-foreground hover:bg-muted/40"
