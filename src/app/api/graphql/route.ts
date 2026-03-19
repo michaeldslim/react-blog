@@ -129,7 +129,7 @@ const resolvers = {
         tags: (args.input.tags?.filter(Boolean) as string[]) ?? [],
       });
 
-      revalidateTag(BLOGS_CACHE_TAG);
+      revalidateTag(BLOGS_CACHE_TAG, "max");
       revalidatePath("/");
       revalidatePath(`/blog/${created.id}`);
 
@@ -157,7 +157,7 @@ const resolvers = {
         tags: args.input.tags ? (args.input.tags.filter(Boolean) as string[]) : undefined,
       });
 
-      revalidateTag(BLOGS_CACHE_TAG);
+      revalidateTag(BLOGS_CACHE_TAG, "max");
       revalidatePath("/");
       revalidatePath(`/blog/${args.id}`);
 
@@ -174,7 +174,7 @@ const resolvers = {
       }
       const deleted = await blogsRepository.deleteBlog(args.id);
 
-      revalidateTag(BLOGS_CACHE_TAG);
+      revalidateTag(BLOGS_CACHE_TAG, "max");
       revalidatePath("/");
       revalidatePath(`/blog/${args.id}`);
 
