@@ -4,10 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { CalendarIcon, UserIcon } from "lucide-react";
 
-import { blogsRepository } from "@/lib/activeBlogsRepository";
+import {
+  getPublicBlogByIdCached,
+  getRecentPublishedBlogIdsCached,
+} from "@/lib/blogsCache";
 import { MarkdownContent } from "@/components/markdown-content";
 import { Badge } from "@/components/ui/badge";
 import { CopyLinkButton, BackButton } from "./CopyLinkButton";
+
+export const revalidate = 60;
 
 interface IProps {
   params: Promise<{ id: string }>;
@@ -27,7 +32,7 @@ function stripMarkdown(text: string): string {
 
 export async function generateMetadata({ params }: IProps): Promise<Metadata> {
   const { id } = await params;
-  const blog = await blogsRepository.getBlogById(id);
+  const blog = await getPublicBlogByIdCached(id);
   if (!blog) return { title: "Post not found" };
 
   const description = stripMarkdown(blog.content).slice(0, 160);
@@ -55,11 +60,16 @@ export async function generateMetadata({ params }: IProps): Promise<Metadata> {
   };
 }
 
+export async function generateStaticParams() {
+  const ids = await getRecentPublishedBlogIdsCached(50);
+  return ids.map((id) => ({ id }));
+}
+
 export default async function BlogPostPage({ params }: IProps) {
   const { id } = await params;
-  const blog = await blogsRepository.getBlogById(id);
+  const blog = await getPublicBlogByIdCached(id);
 
-  if (!blog || blog.status === "draft") {
+  if (!blog) {
     notFound();
   }
 

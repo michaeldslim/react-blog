@@ -3,6 +3,13 @@ import type { NextRequest } from "next/server";
 import { blogsRepository } from "@/lib/activeBlogsRepository";
 import { getToken } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
+import { revalidatePath, revalidateTag } from "next/cache";
+import {
+  BLOGS_CACHE_TAG,
+  getPublicBlogByIdCached,
+  getPublicBlogDatesCached,
+  getPublicBlogsPageCached,
+} from "@/lib/blogsCache";
 
 const typeDefs = /* GraphQL */ `
   type Blog {
@@ -73,18 +80,40 @@ interface IGraphqlContext {
 
 const resolvers = {
   Query: {
-    blogs: (_parent: unknown, args: { page: number; pageSize: number; query?: string | null; tag?: string | null }, context: IGraphqlContext) =>
-      blogsRepository.getBlogsPaginated(args.page, args.pageSize, {
+    blogs: (
+      _parent: unknown,
+      args: { page: number; pageSize: number; query?: string | null; tag?: string | null },
+      context: IGraphqlContext,
+    ) => {
+      const isAnonymousPublicViewer = !context.token?.sub && !context.token?.isAdmin;
+      if (isAnonymousPublicViewer) {
+        return getPublicBlogsPageCached(args.page, args.pageSize, args.query ?? null, args.tag ?? null);
+      }
+
+      return blogsRepository.getBlogsPaginated(args.page, args.pageSize, {
         viewerUserId: context.token?.sub ?? null,
         isAdmin: context.token?.isAdmin ?? false,
         query: args.query ?? undefined,
         tag: args.tag ?? undefined,
-      }),
-    blog: (_parent: unknown, args: { id: string }) => blogsRepository.getBlogById(args.id) ?? null,
-    blogDates: () => blogsRepository.getBlogDates(),
+      });
+    },
+    blog: async (_parent: unknown, args: { id: string }, context: IGraphqlContext) => {
+      const isAnonymousPublicViewer = !context.token?.sub && !context.token?.isAdmin;
+      if (isAnonymousPublicViewer) {
+        return getPublicBlogByIdCached(args.id);
+      }
+      return blogsRepository.getBlogById(args.id) ?? null;
+    },
+    blogDates: (_parent: unknown, _args: unknown, context: IGraphqlContext) => {
+      const isAnonymousPublicViewer = !context.token?.sub && !context.token?.isAdmin;
+      if (isAnonymousPublicViewer) {
+        return getPublicBlogDatesCached();
+      }
+      return blogsRepository.getBlogDates();
+    },
   },
   Mutation: {
-    createBlog: (
+    createBlog: async (
       _parent: unknown,
       args: { input: { title: string; content: string; imageUrl?: string | null; status?: string | null; tags?: string[] | null } },
       context: IGraphqlContext,
@@ -92,13 +121,19 @@ const resolvers = {
       if (!context.token) {
         throw new Error("Unauthorized: sign in to create a post");
       }
-      return blogsRepository.createBlog({
+      const created = await blogsRepository.createBlog({
         ...args.input,
         authorId: context.token.sub ?? null,
         authorName: (context.token.name as string | undefined) ?? null,
         status: (args.input.status as import("@/types").BlogStatus | undefined) ?? "published",
         tags: (args.input.tags?.filter(Boolean) as string[]) ?? [],
       });
+
+      revalidateTag(BLOGS_CACHE_TAG);
+      revalidatePath("/");
+      revalidatePath(`/blog/${created.id}`);
+
+      return created;
     },
     updateBlog: async (
       _parent: unknown,
@@ -116,11 +151,17 @@ const resolvers = {
       if (!context.token.isAdmin && blog.authorId !== context.token.sub) {
         throw new Error("Forbidden: you can only edit your own posts");
       }
-      return blogsRepository.updateBlog(args.id, {
+      const updated = await blogsRepository.updateBlog(args.id, {
         ...args.input,
         status: (args.input.status as import("@/types").BlogStatus | undefined),
         tags: args.input.tags ? (args.input.tags.filter(Boolean) as string[]) : undefined,
       });
+
+      revalidateTag(BLOGS_CACHE_TAG);
+      revalidatePath("/");
+      revalidatePath(`/blog/${args.id}`);
+
+      return updated;
     },
     deleteBlog: async (_parent: unknown, args: { id: string }, context: IGraphqlContext) => {
       if (!context.token) {
@@ -131,7 +172,13 @@ const resolvers = {
       if (!context.token.isAdmin && blog.authorId !== context.token.sub) {
         throw new Error("Forbidden: you can only delete your own posts");
       }
-      return blogsRepository.deleteBlog(args.id);
+      const deleted = await blogsRepository.deleteBlog(args.id);
+
+      revalidateTag(BLOGS_CACHE_TAG);
+      revalidatePath("/");
+      revalidatePath(`/blog/${args.id}`);
+
+      return deleted;
     },
     toggleBlogGood: (_parent: unknown, args: { id: string }) =>
       blogsRepository.toggleBlogGood(args.id),
