@@ -47,6 +47,13 @@ A full-stack blog built with Next.js (App Router) + GraphQL Yoga.
  # choose repository backend
  BLOGS_REPOSITORY=memory # or supabase
 
+# ISR cache window in seconds (optional, default: 60)
+BLOGS_ISR_SECONDS=60
+
+# Optional: enforce same-origin checks for POST /api/graphql in middleware
+# Default is false to avoid blocking legitimate deployments behind proxies/CDNs
+ENFORCE_GRAPHQL_ORIGIN_CHECK=false
+
  # NextAuth
  NEXTAUTH_SECRET=...
  NEXTAUTH_URL=http://localhost:3000
@@ -64,6 +71,14 @@ A full-stack blog built with Next.js (App Router) + GraphQL Yoga.
 
  - **`NEXT_PUBLIC_BASE_URL`** should be your Railway domain in production (e.g. `https://your-app.up.railway.app`).
  - If using Supabase images, `next.config.ts` must allow `*.supabase.co` remote images (already configured).
+
+## ISR + Middleware (Implemented)
+
+- Public blog reads use cached server reads tagged with `blogs` and interval revalidation (`BLOGS_ISR_SECONDS`, default `60`).
+- Mutations (`create/update/delete`) trigger on-demand invalidation via `revalidateTag("blogs")` and revalidate key paths (`/`, `/blog/[id]`).
+- Blog detail route (`/blog/[id]`) uses ISR (`revalidate = 60`) and prebuilds recent published IDs via `generateStaticParams`.
+- Middleware (`src/middleware.ts`) adds baseline security headers and blocks cross-origin `POST` to `/api/theme`.
+- Optional strict origin checks for `POST /api/graphql` can be enabled with `ENFORCE_GRAPHQL_ORIGIN_CHECK=true`.
 
 ---
 
@@ -192,13 +207,18 @@ http://localhost:3000/api/graphql → GraphiQL (GraphQL Yoga)
 2. **GraphQL layer (GraphQL Yoga)**
    - `/api/graphql` route (`src/app/api/graphql/route.ts`)
    - Defines GraphQL schema (`typeDefs`) and resolvers (`resolvers`)
-   - All resolvers call into `blogsRepository`
+  - Public read queries use ISR-friendly cached repository reads
+  - Mutations invalidate cache tags and key paths (`/`, `/blog/[id]`)
 
-3. **Data layer (currently In-memory)**
-   - `src/lib/blogsRepository.ts`
-   - `blogs` array exists only in server memory (typed as `IBlog[]`, exported as `blogsRepository`)
-   - Data resets when the server restarts
-   - Encapsulated in methods so it can be swapped to Supabase (Postgres) later
+3. **Data layer (switchable backend)**
+  - `src/lib/activeBlogsRepository.ts` switches between memory and Supabase implementations
+  - `src/lib/blogsRepository.ts`: in-memory implementation (data resets on server restart)
+  - `src/lib/supabaseBlogsRepository.ts`: Supabase implementation for persistence
+
+4. **Request middleware layer**
+  - `src/middleware.ts`
+  - Adds baseline security headers to responses
+  - Enforces same-origin policy for state-changing API `POST` requests
 
 ---
 

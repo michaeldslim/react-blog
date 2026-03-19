@@ -47,6 +47,9 @@
  # choose repository backend
  BLOGS_REPOSITORY=memory # or supabase
 
+# ISR cache window in seconds (optional, default: 60)
+BLOGS_ISR_SECONDS=60
+
  # NextAuth
  NEXTAUTH_SECRET=...
  NEXTAUTH_URL=http://localhost:3000
@@ -65,6 +68,12 @@
  - **`NEXT_PUBLIC_BASE_URL`** should be your Railway domain in production (e.g. `https://your-app.up.railway.app`).
  - If using Supabase images, `next.config.ts` must allow `*.supabase.co` remote images (already configured).
 
+## ISR + Middleware (Implemented)
+
+- Public blog reads now use cached server reads tagged with `blogs` and revalidated on interval (`BLOGS_ISR_SECONDS`, default `60`).
+- Mutations (`create/update/delete`) trigger on-demand invalidation via `revalidateTag("blogs")` and revalidate key paths (`/`, `/blog/[id]`).
+- Blog detail route (`/blog/[id]`) uses ISR (`revalidate = 60`) and prebuilds recent published IDs via `generateStaticParams`.
+- Middleware (`src/middleware.ts`) adds baseline security headers and blocks cross-origin `POST` to `/api/graphql` and `/api/theme`.
 ---
 
 ## React Blog 프로젝트 정리

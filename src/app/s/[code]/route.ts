@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { blogsRepository } from "@/lib/activeBlogsRepository";
+import { getPublicBlogByShortCodeCached } from "@/lib/blogsCache";
 
 interface IRouteContext {
   params: Promise<{ code: string }>;
@@ -10,9 +10,9 @@ interface IRouteContext {
 export async function GET(request: NextRequest, context: IRouteContext) {
   const { code } = await context.params;
 
-  const blog = await blogsRepository.getBlogByShortCode(code.trim());
+  const blog = await getPublicBlogByShortCodeCached(code.trim());
 
-  if (!blog || blog.status === "draft") {
+  if (!blog) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
