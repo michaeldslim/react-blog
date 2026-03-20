@@ -71,6 +71,8 @@ ENFORCE_GRAPHQL_ORIGIN_CHECK=false
 
  - **`NEXT_PUBLIC_BASE_URL`** should be your Railway domain in production (e.g. `https://your-app.up.railway.app`).
  - If using Supabase images, `next.config.ts` must allow `*.supabase.co` remote images (already configured).
+ - If `BLOGS_REPOSITORY=supabase`, build/runtime requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+ - `generateStaticParams` is resilient and falls back to `[]` when backend/env is unavailable at build time.
 
 ## ISR + Middleware (Implemented)
 

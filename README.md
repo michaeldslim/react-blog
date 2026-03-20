@@ -50,6 +50,10 @@
 # ISR cache window in seconds (optional, default: 60)
 BLOGS_ISR_SECONDS=60
 
+# 선택 사항: middleware에서 POST /api/graphql same-origin 검사 강제
+# 프록시/CDN 환경 오탐 방지를 위해 기본 false 권장
+ENFORCE_GRAPHQL_ORIGIN_CHECK=false
+
  # NextAuth
  NEXTAUTH_SECRET=...
  NEXTAUTH_URL=http://localhost:3000
@@ -67,13 +71,16 @@ BLOGS_ISR_SECONDS=60
 
  - **`NEXT_PUBLIC_BASE_URL`** should be your Railway domain in production (e.g. `https://your-app.up.railway.app`).
  - If using Supabase images, `next.config.ts` must allow `*.supabase.co` remote images (already configured).
+ - `BLOGS_REPOSITORY=supabase` 인 경우, 빌드/런타임에 `SUPABASE_URL` 및 `SUPABASE_SERVICE_ROLE_KEY`가 필요합니다.
+ - `generateStaticParams`는 빌드 시 백엔드/환경변수를 사용할 수 없으면 안전하게 `[]`로 fallback 합니다.
 
 ## ISR + Middleware (Implemented)
 
 - Public blog reads now use cached server reads tagged with `blogs` and revalidated on interval (`BLOGS_ISR_SECONDS`, default `60`).
 - Mutations (`create/update/delete`) trigger on-demand invalidation via `revalidateTag("blogs")` and revalidate key paths (`/`, `/blog/[id]`).
 - Blog detail route (`/blog/[id]`) uses ISR (`revalidate = 60`) and prebuilds recent published IDs via `generateStaticParams`.
-- Middleware (`src/middleware.ts`) adds baseline security headers and blocks cross-origin `POST` to `/api/graphql` and `/api/theme`.
+- Middleware (`src/middleware.ts`) adds baseline security headers and blocks cross-origin `POST` to `/api/theme`.
+- `ENFORCE_GRAPHQL_ORIGIN_CHECK=true` 설정 시에만 `POST /api/graphql`에도 same-origin 차단을 적용합니다.
 ---
 
 ## React Blog 프로젝트 정리

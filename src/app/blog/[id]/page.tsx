@@ -61,8 +61,12 @@ export async function generateMetadata({ params }: IProps): Promise<Metadata> {
 }
 
 export async function generateStaticParams() {
-  const ids = await getRecentPublishedBlogIdsCached(50);
-  return ids.map((id) => ({ id }));
+  try {
+    const ids = await getRecentPublishedBlogIdsCached(50);
+    return ids.map((id) => ({ id }));
+  } catch {
+    return [];
+  }
 }
 
 export default async function BlogPostPage({ params }: IProps) {
