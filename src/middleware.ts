@@ -16,7 +16,7 @@ function getAllowedHosts(request: NextRequest): Set<string> {
     try {
       hosts.add(new URL(baseUrl as string).host);
     } catch {
-      // ignore invalid URL envs
+      //
     }
   }
 
